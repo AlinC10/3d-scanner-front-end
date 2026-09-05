@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1366, height=768, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SCANCORE-3D OS</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="dark-theme">
+
+    <div id="boot-screen">
+        <svg viewBox="0 0 24 24" class="boot-logo"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+        <div class="boot-text">INITIALIZING SCANCORE OS...</div>
+        <div class="boot-loader">
+            <div class="boot-scanner-line"></div>
+        </div>
+    </div>
+
+    <div id="app-wrapper" style="opacity: 0; display: flex; flex-direction: column; height: 100%; width: 100%;">
+        
+        <header>
+            <div class="brand">
+                <svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                SCANCORE-3D
+            </div>
+            <div class="nav-tabs">
+                <div class="nav-tab active" data-target="main-menu">Main Menu</div>
+                <div class="nav-tab" data-target="library">Library</div>
+                <div class="nav-tab" data-target="help-screen">Help</div>
+            </div>
+            <div class="system-status">
+                <span id="clock">00:00</span>
+                
+                <svg viewBox="0 0 24 24" class="status-icon" id="btn-theme">
+                    <circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                </svg>
+                
+                <svg viewBox="0 0 24 24" class="status-icon" data-modal="bt-modal"><polyline points="6.5 6.5 17.5 17.5 12 23 12 1 17.5 6.5 6.5 17.5"></polyline></svg>
+                
+                <svg viewBox="0 0 24 24" class="status-icon" data-modal="wifi-modal"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>
+                
+                <svg viewBox="0 0 24 24" class="status-icon" data-action="nav" data-target="settings-screen" data-tab="tab-general"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            </div>
+        </header>
+
+        <main>
+            <section id="main-menu" class="screen active">
+                <div class="screen-header">
+                    <div class="screen-title-group">
+                        <h1>Select Scan Mode</h1>
+                        <div class="screen-subtitle"><span class="status-dot"></span> SYSTEM READY - CALIBRATED</div>
+                    </div>
+                </div>
+                
+                <div class="menu-grid">
+                    <div class="menu-card" data-action="nav" data-target="pre-scan">
+                        <div class="card-settings-btn" data-action="nav" data-target="settings-screen" data-tab="tab-object" title="Object Scan Settings">
+                            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                        </div>
+                        <div class="menu-card-icon"><svg viewBox="0 0 24 24"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon><line x1="8" y1="2" x2="8" y2="18"></line><line x1="16" y1="6" x2="16" y2="22"></line></svg></div>
+                        <h3>Scan Object</h3>
+                        <p>Mechanical & Industrial parts</p>
+                    </div>
+                    
+                    <div class="menu-card" data-action="nav" data-target="scan-face">
+                        <div class="card-settings-btn" data-action="nav" data-target="settings-screen" data-tab="tab-face" title="Biometric Settings">
+                            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                        </div>
+                        <div class="menu-card-icon"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></div>
+                        <h3>Scan Face</h3>
+                        <p>Biometric & Organic topology</p>
+                    </div>
+                    
+                    <div class="menu-card" data-action="nav" data-target="library">
+                        <div class="card-settings-btn" data-action="nav" data-target="settings-screen" data-tab="tab-library" title="Library Settings">
+                            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                        </div>
+                        <div class="menu-card-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg></div>
+                        <h3>Browse Library</h3>
+                        <p>Access previous scans</p>
+                    </div>
+                </div>
+            </section>
+
+            <section id="pre-scan" class="screen">
+                <div class="screen-header">
+                    <div class="screen-title-group">
+                        <h1><svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg> Object Preparation</h1>
+                        <div class="screen-subtitle">Configure environment for optimal object capture.</div>
+                    </div>
+                </div>
+                <div class="prescan-layout">
+                    <div class="live-preview">
+                        <div class="preview-label">👁️ Live Preview</div>
+                        <div class="wireframe-target"><svg viewBox="0 0 24 24" style="width: 48px; height: 48px; margin-bottom: 12px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg> Target Zone</div>
+                    </div>
+                    <div class="settings-panel">
+                        <div class="setting-row-box" style="padding: 16px; flex-direction: column; align-items: flex-start; gap:16px;">
+                            <div class="setting-row-info" style="flex-direction: row; justify-content: space-between; width: 100%;">
+                                <div style="display:flex; align-items:center; gap:8px;"><svg viewBox="0 0 24 24" style="width:18px;height:18px;"><path d="M21.5 2v6h-6M2.13 15.57a9 9 0 1 0 3.84-10.36L2 2"></path></svg> Turntable Rotation</div>
+                                <span id="rotation-val" style="color: var(--accent); font-weight:700; font-family: var(--font-mono);">180°</span>
+                            </div>
+                            <div class="slider-container" style="width: 100%; margin-top:0;"><input type="range" id="rotation-slider" min="0" max="360" value="180" step="10"></div>
+                        </div>
+                        <button class="btn-primary" id="btn-start-scan">▶ Start Scan Sequence</button>
+                    </div>
+                </div>
+            </section>
+
+            <section id="scan-face" class="screen">
+                <div class="screen-header">
+                    <div class="screen-title-group">
+                        <h1><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg> Face & Biometric Scan</h1>
+                        <div class="screen-subtitle">Organic mesh topology optimization enabled.</div>
+                    </div>
+                </div>
+                <div class="prescan-layout">
+                    <div class="live-preview" style="background-image: none; background-color: var(--bg-tertiary);">
+                        <div class="preview-label">👁️ Camera Feed</div>
+                        <div style="border: 1px solid var(--accent); width: 200px; height: 260px; border-radius: 100px 100px 10px 10px; display:flex; justify-content:center; align-items:center; color: var(--accent);">
+                            Align Face Here
+                        </div>
+                    </div>
+                    <div class="settings-panel">
+                        <div class="setting-row-box" style="padding: 16px;">
+                            <div class="setting-row-info">
+                                <div class="setting-row-title">Scan Resolution</div>
+                            </div>
+                            <div class="dropdown"><span>High (0.1mm)</span></div>
+                        </div>
+                        <div class="setting-row-box" style="padding: 16px;">
+                            <div class="setting-row-info">
+                                <div class="setting-row-title">Texture Capture</div>
+                            </div>
+                            <div class="toggle-switch active"></div>
+                        </div>
+                        <button class="btn-primary" id="btn-start-face-scan">▶ Start Biometric Scan</button>
+                    </div>
+                </div>
+            </section>
+
+            <section id="scanning" class="screen">
+                <div class="scanning-container">
+                    <div class="scan-progress-wrapper">
+                        <h1 class="scan-title">Scanning</h1>
+                        <div class="scan-level">Level 1 of 3</div>
+                        <div class="progress-bar"><div class="progress-fill" id="scan-progress-fill"></div></div>
+                        <div class="progress-stats"><span id="scan-eta">ETA: 45s</span><span id="scan-percent">0% COMPLETE</span></div>
+                        <div class="scan-actions">
+                            <button class="btn-secondary" id="btn-cancel-scan">Cancel</button>
+                            <button class="btn-primary" data-action="nav" data-target="library">📁 Scanned Items</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="library" class="screen">
+                <div class="screen-header">
+                    <div class="screen-title-group">
+                        <h1>Library Archive</h1>
+                        <div class="screen-subtitle">Manage raw mesh data and exports</div>
+                    </div>
+                </div>
+                <div style="text-align: center; color: var(--text-muted); margin-top: 100px;">
+                    <svg viewBox="0 0 24 24" style="width:64px; height:64px; margin-bottom:16px;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
+                    <h2>NO ITEMS SELECTED</h2>
+                    <button class="btn-secondary" style="margin: 32px auto 0;" data-action="nav" data-target="main-menu">Return to Menu</button>
+                </div>
+            </section>
+
+            <section id="help-screen" class="screen">
+                <div class="help-container">
+                    <div class="help-card">
+                        <div class="help-card-title">Calibrate Scanner Hardware</div>
+                        <div class="help-card-desc">Run the initial setup sequence</div>
+                    </div>
+                    <div class="help-card">
+                        <div class="help-card-title">Export Logs to USB</div>
+                        <div class="help-card-desc">Download system logs for debugging</div>
+                    </div>
+                    <div class="help-card">
+                        <div class="help-card-title">User Manual</div>
+                        <div class="help-card-desc">Read the documentation</div>
+                    </div>
+                    <div class="help-card action-card" data-action="nav" data-target="main-menu">
+                        <div class="help-card-title" style="text-align: center; color: var(--text-main);">Return to Main Menu</div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="settings-screen" class="screen">
+                <div class="settings-page-layout">
+                    <aside class="settings-sidebar">
+                        <div class="sidebar-header">SETTINGS CATEGORIES</div>
+                        
+                        <div class="sidebar-tab active" data-tab-target="tab-general">
+                            <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                            General
+                        </div>
+                        
+                        <div class="sidebar-tab" data-tab-target="tab-object">
+                            <svg viewBox="0 0 24 24"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon></svg>
+                            Object Scan
+                        </div>
+                        
+                        <div class="sidebar-tab" data-tab-target="tab-face">
+                            <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                            Face Scan
+                        </div>
+                        
+                        <div class="sidebar-tab" data-tab-target="tab-library">
+                            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
+                            Library
+                        </div>
+                    </aside>
+
+                    <div class="settings-content">
+                        <div class="screen-header" style="margin-bottom: 24px;">
+                            <div class="screen-title-group">
+                                <h1 style="font-size: 1.6rem;"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg> System Preferences</h1>
+                                <div class="screen-subtitle" style="text-transform: none;">Configure global machine parameters.</div>
+                            </div>
+                        </div>
+
+                        <div class="settings-pane active" id="tab-general">
+                            <h2 style="font-size: 1.4rem; margin-bottom: 16px;">General Configuration</h2>
+                            <div class="setting-row-box">
+                                <div class="setting-row-info">
+                                    <div class="setting-row-title">Auto Calibration</div>
+                                    <div class="setting-row-desc">Perform automatic sensor calibration before every scan.</div>
+                                </div>
+                                <div class="toggle-switch active"></div>
+                            </div>
+                            <div class="setting-row-box">
+                                <div class="setting-row-info">
+                                    <div class="setting-row-title">Hardware Acceleration</div>
+                                    <div class="setting-row-desc">Use GPU for faster mesh generation.</div>
+                                </div>
+                                <div class="toggle-switch active"></div>
+                            </div>
+                            <div class="setting-row-box">
+                                <div class="setting-row-info">
+                                    <div class="setting-row-title">UI Animations</div>
+                                    <div class="setting-row-desc">Enable smooth transitions in the interface.</div>
+                                </div>
+                                <div class="toggle-switch active"></div>
+                            </div>
+                        </div>
+
+                        <div class="settings-pane" id="tab-object">
+                            <h2 style="font-size: 1.4rem; margin-bottom: 16px;">Object Scan Options</h2>
+                            <div class="setting-row-box">
+                                <div class="setting-row-info">
+                                    <div class="setting-row-title">Laser Intensity</div>
+                                    <div class="setting-row-desc">Adjust the brightness of the scanning lasers.</div>
+                                </div>
+                                <div class="segmented-control">
+                                    <div class="segment">Low</div>
+                                    <div class="segment active">Medium</div>
+                                    <div class="segment">High</div>
+                                </div>
+                            </div>
+                            <div class="setting-row-box">
+                                <div class="setting-row-info">
+                                    <div class="setting-row-title">Turntable Speed (RPM)</div>
+                                    <div class="setting-row-desc">Lower speed yields higher precision point clouds.</div>
+                                </div>
+                                <div class="segmented-control">
+                                    <div class="segment">Slow</div>
+                                    <div class="segment active">Normal</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="settings-pane" id="tab-face">
+                            <h2 style="font-size: 1.4rem; margin-bottom: 16px;">Biometric Profile</h2>
+                            <div class="setting-row-box">
+                                <div class="setting-row-info">
+                                    <div class="setting-row-title">Eye Safety Limit</div>
+                                    <div class="setting-row-desc">Automatically restrict laser power to safe biometric levels.</div>
+                                </div>
+                                <div class="toggle-switch active"></div>
+                            </div>
+                            <div class="setting-row-box">
+                                <div class="setting-row-info">
+                                    <div class="setting-row-title">Texture Enhancer</div>
+                                    <div class="setting-row-desc">Use AI to upsample skin texture resolution.</div>
+                                </div>
+                                <div class="toggle-switch"></div>
+                            </div>
+                        </div>
+
+                        <div class="settings-pane" id="tab-library">
+                            <h2 style="font-size: 1.4rem; margin-bottom: 16px;">Data Management</h2>
+                            <div class="setting-row-box">
+                                <div class="setting-row-info">
+                                    <div class="setting-row-title">Default Export Format</div>
+                                    <div class="setting-row-desc">Choose format for saved 3D models.</div>
+                                </div>
+                                <div class="segmented-control">
+                                    <div class="segment active">.OBJ</div>
+                                    <div class="segment">.STL</div>
+                                    <div class="segment">.PLY</div>
+                                </div>
+                            </div>
+                            <div class="setting-row-box">
+                                <div class="setting-row-info">
+                                    <div class="setting-row-title">Auto-Save Captures</div>
+                                    <div class="setting-row-desc">Automatically save raw mesh data to disk.</div>
+                                </div>
+                                <div class="toggle-switch active"></div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </section>
+
+            <div class="overlay" id="modal-overlay"></div>
+
+            <div class="os-modal" id="wifi-modal">
+                <div class="modal-header">
+                    <div class="modal-title"><svg viewBox="0 0 24 24"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path></svg> Network Settings</div>
+                    <button class="close-btn" data-close="wifi-modal"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+                </div>
+                <div class="modal-body list-view">
+                    </div>
+            </div>
+
+            <div class="os-modal" id="bt-modal">
+                <div class="modal-header">
+                    <div class="modal-title"><svg viewBox="0 0 24 24"><polyline points="6.5 6.5 17.5 17.5 12 23 12 1 17.5 6.5 6.5 17.5"></polyline></svg> Bluetooth Devices</div>
+                    <button class="close-btn" data-close="bt-modal"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+                </div>
+                <div class="modal-body list-view">
+                    </div>
+            </div>
+
+            <div class="ai-modal" id="ai-modal">
+                <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid var(--neutral-border); padding-bottom: 12px;">
+                    <span style="font-weight: 600; display:flex; align-items:center; gap:8px;">
+                        <svg viewBox="0 0 24 24" style="width:18px;height:18px; color:var(--accent);"><rect x="3" y="11" width="18" height="10" rx="2"></rect><circle cx="12" cy="5" r="2"></circle><path d="M12 7v4"></path></svg>
+                        ScanAssist AI
+                    </span>
+                    <svg viewBox="0 0 24 24" style="width:18px;height:18px; cursor:pointer; color:var(--text-muted);" id="close-ai"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </div>
+                <div class="ai-message">
+                    System calibrated. Ready for scanning. Would you like guidance on object positioning?
+                </div>
+                <div style="display:flex; gap:8px; margin-top:8px;">
+                    <input type="text" placeholder="Ask ScanAssist..." style="flex:1; background:var(--bg-primary); border:1px solid var(--neutral-border); color:var(--text-main); padding:10px; border-radius:6px; font-family:var(--font-main);">
+                    <button style="background:var(--accent); border:none; border-radius:6px; padding:10px; cursor:pointer;">
+                        <svg viewBox="0 0 24 24" style="width:16px;height:16px; stroke:var(--bg-primary);"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="fab" id="btn-fab">
+                <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"></rect><circle cx="12" cy="5" r="2"></circle><path d="M12 7v4"></path></svg>
+                <div>
+                    <div style="font-size: 0.95rem;">SCANASSIST</div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono);">AI Guidance</div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
