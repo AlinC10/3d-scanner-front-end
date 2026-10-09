@@ -41,9 +41,7 @@ body {
   background-color: var(--bg-primary);
   color: var(--text-main);
   font-family: var(--font-main);
-  transition:
-    background-color 0.4s ease,
-    color 0.4s ease;
+  transition: background-color 0.4s ease, color 0.4s ease;
 }
 
 svg {
@@ -66,10 +64,7 @@ header,
 .help-card,
 .segmented-control,
 .sidebar-tab:hover {
-  transition:
-    background-color 0.4s ease,
-    border-color 0.4s ease,
-    color 0.4s ease;
+  transition: background-color 0.4s ease, border-color 0.4s ease, color 0.4s ease;
 }
 
 /* --- BOOT SCREEN --- */
@@ -117,12 +112,8 @@ header,
   animation: scanLine 1.5s ease-in-out infinite alternate;
 }
 @keyframes scanLine {
-  0% {
-    left: -40px;
-  }
-  100% {
-    left: 200px;
-  }
+  0% { left: -40px; }
+  100% { left: 200px; }
 }
 
 /* --- TOP NAV --- */
@@ -157,9 +148,7 @@ header {
   display: flex;
   align-items: center;
   border-bottom: 3px solid transparent;
-  transition:
-    color 0.2s,
-    border-color 0.2s;
+  transition: color 0.2s, border-color 0.2s;
   height: 100%;
   padding: 0 8px;
 }
@@ -206,10 +195,7 @@ main {
   animation: screenEnter 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
 }
 @keyframes screenEnter {
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
+  to { opacity: 1; transform: scale(1); }
 }
 
 .screen-header {
@@ -246,7 +232,6 @@ main {
 }
 
 /* --- MAIN MENU CARDS --- */
-/* Am oprit grid-ul din a se întinde pe toată înălțimea ca să nu mai ajungă peste butonul AI */
 .menu-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -264,7 +249,7 @@ main {
   justify-content: center;
   text-align: center;
   cursor: pointer;
-  height: 430px; /* Înălțime fixă, redusă */
+  height: 430px; 
   position: relative;
   overflow: hidden;
 }
@@ -291,7 +276,6 @@ main {
   font-size: 0.95rem;
 }
 
-/* In-Card Settings Button (Dreapta-Jos) */
 .card-settings-btn {
   position: absolute;
   bottom: 12px;
@@ -307,10 +291,7 @@ main {
   transition: all 0.2s ease;
   z-index: 10;
 }
-.card-settings-btn svg {
-  width: 20px;
-  height: 20px;
-}
+.card-settings-btn svg { width: 20px; height: 20px; }
 .card-settings-btn:hover {
   color: var(--text-main);
   background-color: var(--neutral-border);
@@ -383,9 +364,7 @@ input[type="range"] {
   width: 100%;
   background: transparent;
 }
-input[type="range"]:focus {
-  outline: none;
-}
+input[type="range"]:focus { outline: none; }
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   height: 32px;
@@ -590,10 +569,7 @@ input[type="range"]::-webkit-slider-runnable-track {
   color: var(--text-muted);
   transition: all 0.2s;
 }
-.sidebar-tab svg {
-  width: 18px;
-  height: 18px;
-}
+.sidebar-tab svg { width: 18px; height: 18px; }
 .sidebar-tab.active {
   background-color: var(--neutral-border);
   color: var(--text-main);
@@ -609,9 +585,7 @@ input[type="range"]::-webkit-slider-runnable-track {
   display: none;
   animation: fadeIn 0.3s ease;
 }
-.settings-pane.active {
-  display: block;
-}
+.settings-pane.active { display: block; }
 
 .setting-row-box {
   display: flex;
@@ -678,12 +652,8 @@ input[type="range"]::-webkit-slider-runnable-track {
   border-radius: 50%;
   transition: transform 0.3s;
 }
-.toggle-switch.active {
-  background: var(--accent);
-}
-.toggle-switch.active::after {
-  transform: translateX(20px);
-}
+.toggle-switch.active { background: var(--accent); }
+.toggle-switch.active::after { transform: translateX(20px); }
 
 /* --- MODALS (WIFI / BT) --- */
 .overlay {
@@ -699,10 +669,7 @@ input[type="range"]::-webkit-slider-runnable-track {
   pointer-events: none;
   transition: opacity 0.3s ease;
 }
-.overlay.show {
-  opacity: 1;
-  pointer-events: all;
-}
+.overlay.show { opacity: 1; pointer-events: all; }
 .os-modal {
   position: fixed;
   top: 50%;
@@ -815,18 +782,16 @@ input[type="range"]::-webkit-slider-runnable-track {
   transition: transform 0.2s;
   z-index: 100;
 }
-.fab:active {
-  transform: scale(0.95);
-}
-.fab svg {
-  color: var(--accent);
-}
+.fab:active { transform: scale(0.95); }
+.fab svg { color: var(--accent); }
+
 .ai-modal {
   display: none;
   position: absolute;
-  bottom: 100px;
+  bottom: 32px;
   left: 32px;
-  width: 320px;
+  width: 420px;
+  height: 550px;
   background: var(--bg-secondary);
   border: 1px solid var(--neutral-border);
   border-radius: 12px;
@@ -841,14 +806,8 @@ input[type="range"]::-webkit-slider-runnable-track {
   animation: slideUp 0.2s ease-out;
 }
 @keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 .ai-message {
   background: var(--bg-primary);
