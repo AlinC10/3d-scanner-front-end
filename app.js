@@ -1,5 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
 
+    const API_URL = 'http://127.0.0.1:8000';
+    
     // --- 1. BOOT SCREEN LOGIC ---
     const bootScreen = document.getElementById('boot-screen');
     const appWrapper = document.getElementById('app-wrapper');
@@ -11,15 +13,13 @@ document.addEventListener('DOMContentLoaded', () => {
             appWrapper.style.opacity = '1';
             document.getElementById('main-menu').classList.add('active');
         }, 600); 
-    }, 2000);
+    }, 1500);
 
     // --- 2. SYSTEM CLOCK ---
     function updateClock() {
-        const now = new Date();
-        document.getElementById('clock').innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+        document.getElementById('clock').innerText = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
     }
-    setInterval(updateClock, 1000);
-    updateClock();
+    setInterval(updateClock, 1000); updateClock();
 
     // --- 3. THEME TOGGLE ---
     const btnTheme = document.getElementById('btn-theme');
@@ -32,128 +32,183 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- 4. NAVIGATION ---
-    function openSettingsTab(tabId) {
-        document.querySelectorAll('.sidebar-tab').forEach(t => t.classList.remove('active'));
-        const tabBtn = document.querySelector(`.sidebar-tab[data-tab-target="${tabId}"]`);
-        if (tabBtn) tabBtn.classList.add('active');
-
-        document.querySelectorAll('.settings-pane').forEach(p => p.classList.remove('active'));
-        const pane = document.getElementById(tabId);
-        if (pane) pane.classList.add('active');
-    }
-
-    document.querySelectorAll('.sidebar-tab').forEach(tab => {
-        tab.addEventListener('click', function() { openSettingsTab(this.getAttribute('data-tab-target')); });
-    });
-
+    // --- 4. NAVIGATION & MJPEG STREAM ROUTING ---
     function navigateTo(targetId) {
+        if (typeof closeAllModals === 'function') {
+            closeAllModals();
+        }
+
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        
         const targetScreen = document.getElementById(targetId);
         if (targetScreen) { void targetScreen.offsetWidth; targetScreen.classList.add('active'); }
         
         document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
-        if (['main-menu', 'pre-scan', 'scanning', 'scan-face', 'settings-screen'].includes(targetId)) {
-            document.querySelector('.nav-tab[data-target="main-menu"]').classList.add('active');
+        document.querySelectorAll('.status-icon').forEach(icon => icon.classList.remove('active-icon'));
+
+        if (['main-menu', 'pre-scan', 'scan-face', 'scanning'].includes(targetId)) {
+            document.querySelector('.nav-tab[data-target="main-menu"]')?.classList.add('active');
         } else if (targetId === 'library') {
-            document.querySelector('.nav-tab[data-target="library"]').classList.add('active');
+            document.querySelector('.nav-tab[data-target="library"]')?.classList.add('active');
         } else if (targetId === 'help-screen') {
-            document.querySelector('.nav-tab[data-target="help-screen"]').classList.add('active');
+            document.querySelector('.nav-tab[data-target="help-screen"]')?.classList.add('active');
+        } else if (targetId === 'settings-screen') {
+            document.getElementById('icon-settings')?.classList.add('active-icon');
         }
 
-        const aiModal = document.getElementById('ai-modal');
-        const btnFab = document.getElementById('btn-fab');
-        if (aiModal && aiModal.classList.contains('show')) {
-            aiModal.classList.remove('show');
-            btnFab.style.display = 'flex';
+        const scanStream = document.getElementById('active-scan-stream');
+        if (scanStream) {
+            scanStream.src = targetId === 'scanning' ? `${API_URL}/scanner/stream` : '';
         }
     }
 
-    document.querySelectorAll('[data-action="nav"]').forEach(el => {
+    document.querySelectorAll('[data-action="nav"], .nav-tab').forEach(el => {
         el.addEventListener('click', function(e) { 
             e.stopPropagation();
-            const targetScreen = this.getAttribute('data-target');
-            const targetTab = this.getAttribute('data-tab');
-            navigateTo(targetScreen);
-            if (targetScreen === 'settings-screen' && targetTab) openSettingsTab(targetTab);
+            navigateTo(this.getAttribute('data-target'));
         });
     });
 
-    document.querySelectorAll('.nav-tab').forEach(tab => {
-        tab.addEventListener('click', function(e) { e.stopPropagation(); navigateTo(this.getAttribute('data-target')); });
-    });
-
     // --- 5. UI INTERACTIONS ---
-    const slider = document.getElementById('rotation-slider');
-    const sliderVal = document.getElementById('rotation-val');
-    if (slider && sliderVal) {
-        slider.addEventListener('input', function() { sliderVal.innerText = this.value + '°'; });
+    const btnToggleAdv = document.getElementById('btn-toggle-adv');
+    const advContainer = document.getElementById('advanced-settings-container');
+    if(btnToggleAdv) {
+        btnToggleAdv.addEventListener('click', () => {
+            if(advContainer.style.display === 'none') {
+                advContainer.style.display = 'flex';
+                btnToggleAdv.innerText = 'Hide Advanced Settings ▲';
+            } else {
+                advContainer.style.display = 'none';
+                btnToggleAdv.innerText = 'Show Advanced Settings ▼';
+            }
+        });
     }
+
+    const syncSlider = (id) => {
+        const slider = document.getElementById(id);
+        const val = document.getElementById(id + '-val');
+        if(slider && val) slider.addEventListener('input', () => val.innerText = slider.value);
+    }
+    syncSlider('cfg-obj-photo-q'); syncSlider('cfg-adv-stream-q'); 
+    syncSlider('cfg-adv-acc'); syncSlider('cfg-adv-dec'); 
+    syncSlider('cfg-adv-bright'); syncSlider('cfg-adv-led');
+    
+    syncSlider('export-decimation'); syncSlider('export-draco');
 
     document.querySelectorAll('.toggle-switch:not([id])').forEach(toggle => {
         toggle.addEventListener('click', function() { this.classList.toggle('active'); });
     });
 
-    document.querySelectorAll('.segment').forEach(segment => {
-        segment.addEventListener('click', function() {
-            const parent = this.parentElement;
-            parent.querySelectorAll('.segment').forEach(s => s.classList.remove('active'));
-            this.classList.add('active');
-        });
-    });
-
     const aiModal = document.getElementById('ai-modal');
     const btnFab = document.getElementById('btn-fab');
-    
-    btnFab.addEventListener('click', () => {
-        aiModal.classList.add('show');
-        btnFab.style.display = 'none';
-    });
-    
-    document.getElementById('close-ai').addEventListener('click', () => {
-        aiModal.classList.remove('show');
-        btnFab.style.display = 'flex'; 
-    });
+    if(btnFab) btnFab.addEventListener('click', () => { aiModal.classList.add('show'); btnFab.style.display = 'none'; });
+    const closeAiBtn = document.getElementById('close-ai');
+    if(closeAiBtn) closeAiBtn.addEventListener('click', () => { aiModal.classList.remove('show'); btnFab.style.display = 'flex'; });
 
-    // --- 6. SCANNING SIMULATOR ---
-    let scanInterval;
-    const bar = document.getElementById('scan-progress-fill');
-    const pct = document.getElementById('scan-percent');
-    const eta = document.getElementById('scan-eta');
-
-    function startMockScan() {
-        const turntableAngle = parseInt(document.getElementById('rotation-slider').value);
-        navigateTo('scanning');
-        let progress = 0;
-        bar.style.width = '0%'; bar.style.backgroundColor = 'var(--accent)';
-        pct.innerText = '0% COMPLETE'; eta.innerText = 'ETA: 45s';
-        
-        clearInterval(scanInterval);
-        scanInterval = setInterval(() => {
-            progress += Math.random() * 2.5 + 1;
-            if (progress >= 100) {
-                progress = 100; clearInterval(scanInterval);
-                eta.innerText = "ETA: 0s - SCAN COMPLETE";
-                bar.style.backgroundColor = "#10B981"; 
-            } else {
-                let secondsLeft = Math.floor((100 - progress) / 2);
-                eta.innerText = `ETA: ${secondsLeft}s`;
-            }
-            bar.style.width = `${progress}%`; pct.innerText = `${Math.floor(progress)}% COMPLETE`;
-        }, 600);
+    const clearAiBtn = document.getElementById('clear-ai');
+    if(clearAiBtn) {
+        clearAiBtn.addEventListener('click', () => {
+            aiConversationHistory = [];
+            msgCounter = 0;
+            aiChatHistory.innerHTML = '<div class="ai-message">System calibrated. Ready for scanning. Would you like guidance?</div>';
+        });
     }
 
-    document.getElementById('btn-start-scan').addEventListener('click', startMockScan);
-    document.getElementById('btn-start-face-scan').addEventListener('click', startMockScan);
-    document.getElementById('btn-cancel-scan').addEventListener('click', async () => {
-        clearInterval(scanInterval); navigateTo('main-menu');
-        try { await fetch('http://127.0.0.1:8000/scanner/cancel', { method: 'POST' }); } catch(e){}
-    });
+    // --- LOGICA PENTRU MENIUL DE EXPORT ---
+    const exportFormat = document.getElementById('export-format');
+    const settingTexture = document.getElementById('export-setting-texture');
+    const settingDraco = document.getElementById('export-setting-draco');
 
-    // --- 7. WIFI / BT / ETHERNET MODALS ---
-    const overlay = document.getElementById('modal-overlay');
-    const API_URL = 'http://127.0.0.1:8000';
+    if(exportFormat) {
+        exportFormat.addEventListener('change', (e) => {
+            const val = e.target.value;
+            settingDraco.style.display = (val === 'glb') ? 'flex' : 'none';
+            settingTexture.style.display = (val === 'stl') ? 'none' : 'flex';
+        });
+    }
+
+    // --- 6. SCANNER LOGIC (PREPARE, POLL, SCAN, CANCEL) ---
+    let statusInterval = null;
+
+    async function triggerCancel() {
+        if(statusInterval) clearInterval(statusInterval);
+        navigateTo('main-menu');
+        try { await fetch(`${API_URL}/scanner/cancel`, { method: 'POST' }); } catch(e){}
+    }
     
+    document.getElementById('btn-cancel-scan').addEventListener('click', triggerCancel);
+
+    function buildObjectConfigJSON() {
+        return {
+            basic: {
+                z_axis_height: parseInt(document.getElementById('cfg-obj-z').value || 100),
+                turntable_angle: parseFloat(document.getElementById('cfg-obj-turntable').value || 18),
+                photo_resolution: document.getElementById('cfg-obj-photo-res').value || "1920x1080",
+                preview_resolution: document.getElementById('cfg-obj-preview-res').value || "1012x760",
+                photo_quality: parseInt(document.getElementById('cfg-obj-photo-q').value || 90)
+            },
+            advanced: {
+                stream_quality: parseInt(document.getElementById('cfg-adv-stream-q').value || 80),
+                motor_acceleration: parseInt(document.getElementById('cfg-adv-acc').value || 10),
+                motor_deceleration: parseInt(document.getElementById('cfg-adv-dec').value || 10),
+                camera_brightness: parseInt(document.getElementById('cfg-adv-bright').value || 50),
+                led_intensity: parseFloat(document.getElementById('cfg-adv-led').value || 0.5)
+            }
+        };
+    }
+
+    async function startScanSequence(payload) {
+        navigateTo('scanning');
+        const statusTitle = document.getElementById('scan-status-title');
+        statusTitle.innerText = "Status: Calling Prepare...";
+
+        try {
+            await fetch(`${API_URL}/scanner/prepare`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            statusTitle.innerText = "Status: Preparing Hardware...";
+            statusInterval = setInterval(async () => {
+                try {
+                    const res = await fetch(`${API_URL}/scanner/status`);
+                    const data = await res.json();
+                    
+                    if(data.status === 'prepare' || data.status === 'ready_to_scan') {
+                        clearInterval(statusInterval);
+                        statusTitle.innerText = "Status: Scanning in progress...";
+                        await fetch(`${API_URL}/scanner/scan`, { method: 'POST' });
+                    }
+                } catch(e) { console.error("Status polling failed", e); }
+            }, 5000);
+
+        } catch (error) {
+            statusTitle.innerText = "Error calling prepare endpoint.";
+            setTimeout(() => triggerCancel(), 3000);
+        }
+    }
+
+    const btnObjPrep = document.getElementById('btn-start-obj-prep');
+    if(btnObjPrep) {
+        btnObjPrep.addEventListener('click', () => {
+            const objPayload = buildObjectConfigJSON();
+            startScanSequence(objPayload);
+        });
+    }
+
+    const btnFacePrep = document.getElementById('btn-start-face-prep');
+    if(btnFacePrep) {
+        btnFacePrep.addEventListener('click', () => {
+            const facePayload = {
+                basic: { photo_resolution: "1920x1080", preview_resolution: "1012x760" }
+            };
+            startScanSequence(facePayload);
+        });
+    }
+
+    // --- 7. WIFI / BT / ETHERNET LOGIC ---
+    const overlay = document.getElementById('modal-overlay');
     let wifiScanInterval = null;
     let currentConnectedSSID = null;
 
@@ -166,26 +221,55 @@ document.addEventListener('DOMContentLoaded', () => {
     const toggleWifiPower = document.getElementById('toggle-wifi-power');
     const toggleBtPower = document.getElementById('toggle-bt-power');
 
-    // Ethernet Polling
+    const iconNoNet = document.getElementById('icon-no-net');
+    const iconWifiMain = document.getElementById('icon-wifi');
+    
+    function updateNetworkStatus() {
+        if (!navigator.onLine) {
+            if(iconNoNet) iconNoNet.style.display = 'block';
+            if(iconWifiMain) iconWifiMain.style.display = 'none';
+        } else {
+            if(iconNoNet) iconNoNet.style.display = 'none';
+            if(iconWifiMain) iconWifiMain.style.display = 'block';
+        }
+    }
+    window.addEventListener('online', updateNetworkStatus);
+    window.addEventListener('offline', updateNetworkStatus);
+    updateNetworkStatus();
+
+    function updateMainWifiIcon(powerOn, isConnected) {
+        if(!navigator.onLine) return; 
+        const iconWifi = document.getElementById('icon-wifi');
+        if(!iconWifi) return;
+        
+        if(!powerOn) {
+            iconWifi.innerHTML = `<path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line><line x1="2" y1="2" x2="22" y2="22" stroke="currentColor" stroke-width="2"></line>`;
+            iconWifi.style.opacity = '0.4';
+        } else if (!isConnected) {
+            iconWifi.innerHTML = `<line x1="12" y1="20" x2="12.01" y2="20" stroke-width="3"></line>`;
+            iconWifi.style.opacity = '1';
+        } else {
+            iconWifi.innerHTML = `<path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line>`;
+            iconWifi.style.opacity = '1';
+        }
+    }
+
     setInterval(async () => {
         const iconEthernet = document.getElementById('icon-ethernet');
-        const iconWifi = document.querySelector('[data-modal="wifi-modal"]');
         
         try {
             const res = await fetch(`${API_URL}/system/ethernet/status`);
             if (res.ok) {
-                // Cablul este conectat: Arătăm Ethernet, Ascundem Wi-Fi
-                iconEthernet.style.display = 'block'; 
-                if (iconWifi) iconWifi.style.display = 'none';
+                if (iconEthernet) iconEthernet.style.display = 'block'; 
+                if (iconWifiMain) iconWifiMain.style.display = 'none';
+                if (iconNoNet) iconNoNet.style.display = 'none';
             } else {
-                // Nu este cablu: Ascundem Ethernet, Arătăm Wi-Fi
-                iconEthernet.style.display = 'none';
-                if (iconWifi) iconWifi.style.display = 'block';
+                if (iconEthernet) iconEthernet.style.display = 'none';
+                updateNetworkStatus();
             }
         } catch(e) {
-            // Dacă pică backend-ul, revenim la starea implicită (fără cablu)
-            iconEthernet.style.display = 'none';
-            if (iconWifi) iconWifi.style.display = 'block';
+            if (iconEthernet) iconEthernet.style.display = 'none';
+            updateNetworkStatus();
         }
     }, 5000);
 
@@ -202,6 +286,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     toggleWifiPower.addEventListener('click', async function() {
         isWifiPowerOn = !isWifiPowerOn;
+        updateMainWifiIcon(isWifiPowerOn, currentConnectedSSID !== null);
+        
         if(isWifiPowerOn) {
             this.classList.add('active');
             loadWiFiNetworks();
@@ -209,7 +295,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             this.classList.remove('active');
             stopAutoScan();
-            renderDisabledState('wifi-list', 'Wi-Fi dezactivat', 'Conectați-vă la rețelele din apropiere activând Wi-Fi cu comutatorul de mai sus.');
+            renderDisabledState('wifi-list', 'Wi-Fi Disabled', 'Connect to nearby networks by turning on Wi-Fi using the toggle above.');
         }
         try { await fetch(`${API_URL}/system/wifi/power/${isWifiPowerOn ? 'on' : 'off'}`); } catch(e){}
     });
@@ -221,15 +307,13 @@ document.addEventListener('DOMContentLoaded', () => {
             loadBluetoothDevices();
         } else {
             this.classList.remove('active');
-            renderDisabledState('bt-list', 'Bluetooth dezactivat', 'Conectați-vă la dispozitivele Bluetooth din apropiere activând Bluetooth cu comutatorul de mai sus.');
+            renderDisabledState('bt-list', 'Bluetooth Disabled', 'Connect to nearby Bluetooth devices by using the toggle above.');
         }
         try { await fetch(`${API_URL}/system/bluetooth/power/${isBtPowerOn ? 'on' : 'off'}`); } catch(e){}
     });
 
     function startAutoScan() {
-        if(autoScanToggle.checked && isWifiPowerOn) {
-            wifiScanInterval = setInterval(loadWiFiNetworks, 10000);
-        }
+        if(autoScanToggle.checked && isWifiPowerOn) wifiScanInterval = setInterval(loadWiFiNetworks, 10000);
     }
     
     function stopAutoScan() {
@@ -253,6 +337,19 @@ document.addEventListener('DOMContentLoaded', () => {
         loadBluetoothDevices().then(() => btnRefreshBt.style.opacity = '1');
     });
 
+    async function fetchMarkdown(filename, containerId) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = `<div style="text-align: center; margin-top: 40px;"><svg viewBox="0 0 24 24" class="spinner" style="width: 32px; height: 32px;"><circle cx="12" cy="12" r="10" stroke-width="3" stroke-dasharray="31.4 31.4" fill="none" stroke-linecap="round"></circle></svg><p style="margin-top: 16px;">Loading document from server...</p></div>`;
+        try {
+            const response = await fetch(`${API_URL}/docs/${filename}?t=${new Date().getTime()}`);
+            if (!response.ok) throw new Error('File not found');
+            const text = await response.text();
+            container.innerHTML = marked.parse(text);
+        } catch (e) {
+            container.innerHTML = `<div style="color: #ef4444; padding: 20px; text-align: center;">Error loading documentation: <b>${filename}</b> could not be found. Make sure FastAPI is serving the directory.</div>`;
+        }
+    }
+
     document.querySelectorAll('[data-modal]').forEach(btn => {
         btn.addEventListener('click', function() {
             const modalId = this.getAttribute('data-modal');
@@ -264,6 +361,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 startAutoScan();
             } else if(modalId === 'bt-modal' && isBtPowerOn) {
                 loadBluetoothDevices();
+            } else if(modalId === 'doc-user-modal') {
+                fetchMarkdown('user_manual.md', 'user-manual-content');
+            } else if(modalId === 'doc-tech-modal') {
+                fetchMarkdown('technical_documentation.md', 'tech-doc-content');
             }
         });
     });
@@ -271,11 +372,19 @@ document.addEventListener('DOMContentLoaded', () => {
     function closeAllModals() {
         overlay.classList.remove('show');
         document.querySelectorAll('.os-modal').forEach(m => m.classList.remove('show'));
+        const aiModal = document.getElementById('ai-modal');
+        const btnFab = document.getElementById('btn-fab');
+        if (aiModal && aiModal.classList.contains('show')) {
+            aiModal.classList.remove('show');
+            btnFab.style.display = 'flex';
+        }
         stopAutoScan();
     }
     
     document.querySelectorAll('[data-close]').forEach(btn => btn.addEventListener('click', closeAllModals));
     overlay.addEventListener('click', closeAllModals);
+
+    window.closeAllModals = closeAllModals; 
 
     async function loadWiFiNetworks() {
         if(!isWifiPowerOn) return;
@@ -287,7 +396,6 @@ document.addEventListener('DOMContentLoaded', () => {
             let networks = [];
             
             if (!response.ok) {
-                console.warn("Backend WiFi scan failed. Using UI mock data.");
                 networks = [
                     { ssid: "Scancore_Test_Net", signal: 95, security: "WPA2" },
                     { ssid: "Home_WiFi", signal: 70, security: "WPA2" },
@@ -300,31 +408,46 @@ document.addEventListener('DOMContentLoaded', () => {
             listContainer.innerHTML = ''; 
             if(networks.length === 0) {
                 listContainer.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-muted);">No networks found.</div>';
+                updateMainWifiIcon(true, false);
                 return;
             }
+
+            let anyConnected = false;
 
             networks.forEach((net) => {
                 const isSecure = net.security && net.security !== "open"; 
                 const isConnected = (net.ssid === currentConnectedSSID) || (net.connected === true); 
-                
-                const securityIcon = isSecure ? '<svg viewBox="0 0 24 24" style="width:16px;height:16px"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></path><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>' : '';
+                if (isConnected) anyConnected = true;
+
+                let signalIcon = '';
+                if(net.signal > 75) signalIcon = `<path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line>`;
+                else if(net.signal > 40) signalIcon = `<path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line>`;
+                else signalIcon = `<line x1="12" y1="20" x2="12.01" y2="20" stroke-width="3"></line>`;
+
+                const securityIcon = isSecure ? `<svg viewBox="0 0 24 24" style="width:16px;height:16px; margin-left:8px;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>` : '';
                 
                 const item = document.createElement('div');
                 item.className = `list-item ${isConnected ? 'active' : ''}`;
                 if (isConnected) item.style.borderColor = 'var(--accent)';
 
                 item.innerHTML = `
-                    <div class="list-info">
-                        <span style="${isConnected ? 'color: var(--accent);' : ''}">${net.ssid}</span>
-                        <small>Signal: ${net.signal}% | ${isSecure ? 'Secure' : 'Open'}</small>
+                    <div style="display:flex; align-items:center;">
+                        <svg viewBox="0 0 24 24" style="width:20px;height:20px; margin-right:12px; color:var(--text-main);">${signalIcon}</svg>
+                        <div class="list-info">
+                            <span style="${isConnected ? 'color: var(--accent);' : ''}">${net.ssid}</span>
+                            <small>Signal: ${net.signal}% | ${isSecure ? 'Secure' : 'Open'}</small>
+                        </div>
                     </div>
                     ${isConnected ? '<svg class="connected-icon" viewBox="0 0 24 24" style="color:var(--accent);"><polyline points="20 6 9 17 4 12"></polyline></svg>' : securityIcon}
                 `;
                 item.addEventListener('click', () => connectToWiFi(item, net.ssid, isSecure));
                 listContainer.appendChild(item);
             });
+            
+            updateMainWifiIcon(true, anyConnected);
+
         } catch (error) {
-            listContainer.innerHTML = `<div style="color:#EF4444; text-align:center; padding:20px;">Eroare de conexiune cu API-ul.</div>`;
+            listContainer.innerHTML = `<div style="color:#EF4444; text-align:center; padding:20px;">API connection error.</div>`;
         }
     }
 
@@ -344,10 +467,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if(span) span.style.color = '';
             const checkIcon = el.querySelector('.connected-icon');
             if(checkIcon) checkIcon.remove();
-            
-            if(!el.innerHTML.includes('<svg') && !el.innerHTML.includes('Open')) {
-                 el.innerHTML += '<svg viewBox="0 0 24 24" style="width:16px;height:16px"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>';
-            }
         });
 
         const smallText = element.querySelector('small');
@@ -365,12 +484,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 element.querySelector('span').style.color = 'var(--accent)';
                 element.innerHTML += '<svg class="connected-icon" viewBox="0 0 24 24" style="color:var(--accent);"><polyline points="20 6 9 17 4 12"></polyline></svg>';
                 currentConnectedSSID = ssid;
+                updateMainWifiIcon(true, true);
             } else {
                 smallText.innerText = 'Connection Failed';
                 element.classList.remove('active'); element.style.borderColor = '';
             }
         } catch (e) {
-            smallText.innerText = 'Error talking to OS';
+            smallText.innerText = 'Error interacting with OS API';
             element.classList.remove('active'); element.style.borderColor = '';
         }
     }
@@ -385,9 +505,8 @@ document.addEventListener('DOMContentLoaded', () => {
             let devices = [];
 
             if (!response.ok) {
-                console.warn("Backend BT scan failed. Using UI mock data.");
                 devices = [
-                    { name: "iPhone 15 Pro", mac_address: "AA:BB:CC:DD:EE:11", status: "Found" },
+                    { name: "My Phone", mac_address: "AA:BB:CC:DD:EE:11", status: "Found" },
                     { name: "Scancore Remote", mac_address: "11:22:33:44:55:66", status: "Paired" }
                 ];
             } else {
@@ -428,7 +547,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 listContainer.appendChild(item);
             });
         } catch (error) {
-            listContainer.innerHTML = `<div style="color:#EF4444; text-align:center; padding:20px;">Eroare de conexiune cu API-ul.</div>`;
+            listContainer.innerHTML = `<div style="color:#EF4444; text-align:center; padding:20px;">API connection error.</div>`;
         }
     }
 
@@ -445,25 +564,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
         appendChatMessage('user', text);
         aiInput.value = '';
-        
         const loadingId = appendChatMessage('ai', 'Thinking...');
 
         try {
             const response = await fetch(`${API_URL}/api/ai/chat`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ question: text, history: aiConversationHistory })
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: text, history: aiConversationHistory })
             });
-            
             const data = await response.json();
             
             document.getElementById(loadingId).remove();
             appendChatMessage('ai', data.response);
 
-            aiConversationHistory.push({ role: 'user', text: text });
-            aiConversationHistory.push({ role: 'assistant', text: data.response });
+            aiConversationHistory.push({ role: 'user', text: text }, { role: 'assistant', text: data.response });
             if(aiConversationHistory.length > 10) aiConversationHistory = aiConversationHistory.slice(-10);
-
         } catch (error) {
             document.getElementById(loadingId).remove();
             appendChatMessage('error', 'Connection to AI Server failed.');
@@ -495,9 +608,43 @@ document.addEventListener('DOMContentLoaded', () => {
         return msgId;
     }
 
-    aiSendBtn.addEventListener('click', sendAiMessage);
-    aiInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') sendAiMessage();
-    });
+    if(aiSendBtn) aiSendBtn.addEventListener('click', sendAiMessage);
+    if(aiInput) aiInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendAiMessage(); });
 
+    // --- 9. API TESTER TAB ---
+    const btnApiSend = document.getElementById('btn-api-test-send');
+    if (btnApiSend) {
+        btnApiSend.addEventListener('click', async () => {
+            const endpointSelect = document.getElementById('api-tester-endpoint').value.split('|');
+            const method = endpointSelect[0];
+            const route = endpointSelect[1];
+            const jsonBodyRaw = document.getElementById('api-tester-json').value;
+            const responsePre = document.getElementById('api-tester-response');
+            const statusDiv = document.getElementById('api-tester-status');
+            
+            responsePre.innerText = "Sending request...";
+            statusDiv.innerText = "Status: waiting...";
+
+            let fetchOptions = { method: method, headers: {} };
+            if (method !== 'GET') {
+                fetchOptions.headers['Content-Type'] = 'application/json';
+                try { JSON.parse(jsonBodyRaw); fetchOptions.body = jsonBodyRaw; } 
+                catch(e) { responsePre.innerText = "Invalid JSON input format!"; return; }
+            }
+
+            try {
+                const res = await fetch(`${API_URL}${route}`, fetchOptions);
+                statusDiv.innerText = `Status: ${res.status} ${res.statusText}`;
+                try {
+                    const data = await res.json();
+                    responsePre.innerText = JSON.stringify(data, null, 2);
+                } catch(e) {
+                    responsePre.innerText = await res.text();
+                }
+            } catch(error) {
+                statusDiv.innerText = "Status: Fetch Error";
+                responsePre.innerText = error.toString();
+            }
+        });
+    }
 });
