@@ -1,0 +1,55 @@
+/* --- CSS VARIABLES & THEMING --- */
+:root {
+  color-scheme: dark;
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-tertiary: #0b111f;
+  --accent: #14b8a6;
+  --accent-hover: #0d9485;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --neutral-border: #334155;
+  --modal-bg: rgba(30, 41, 59, 0.85);
+
+  --font-main: "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
+
+body.light-theme {
+  color-scheme: light;
+  --bg-primary: #f8fafc;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f1f5f9;
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --neutral-border: #cbd5e1;
+  --modal-bg: rgba(255, 255, 255, 0.9);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+body {
+  width: 1366px;
+  height: 768px;
+  overflow: hidden;
+  background-color: var(--bg-primary);
+  color: var(--text-main);
+  font-family: var(--font-main);
+  transition: background-color 0.4s ease, color 0.4s ease;
+}
+
+svg {
+  width: 24px;
+  height: 24px;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}

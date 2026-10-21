@@ -1,0 +1,118 @@
+/* --- MODALS --- */
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  z-index: 50;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+.overlay.show {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.os-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -45%) scale(0.95);
+  width: 480px;
+  background: var(--modal-bg);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--neutral-border);
+  border-radius: 16px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
+  z-index: 51;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+}
+.os-modal.show {
+  opacity: 1;
+  pointer-events: all;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px;
+  border-bottom: 1px solid var(--neutral-border);
+}
+.modal-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 8px;
+  transition:
+    color 0.2s,
+    background-color 0.2s;
+}
+.close-btn:active {
+  background: var(--neutral-border);
+  color: var(--text-main);
+}
+.modal-body {
+  padding: 24px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.list-view {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--neutral-border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.list-item:active {
+  transform: scale(0.98);
+  border-color: var(--accent);
+}
+.list-item.active {
+  border-color: var(--accent);
+  background: rgba(20, 184, 166, 0.05);
+}
+
+.list-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.list-info span {
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+.list-info small {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-family: var(--font-mono);
+}

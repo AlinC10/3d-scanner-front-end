@@ -1,0 +1,104 @@
+/* --- SETTINGS SCREEN (Developer Menu) --- */
+.settings-page-layout { 
+  display: flex; 
+  gap: 40px; 
+  height: 100%; 
+  align-items: flex-start; 
+  overflow: hidden; 
+  padding-bottom: 90px; 
+}
+
+.settings-sidebar { 
+  width: 240px; 
+  display: flex; 
+  flex-direction: column; 
+  gap: 8px; 
+  border-right: 1px solid var(--neutral-border); 
+  padding-right: 24px; 
+  height: 100%; 
+  flex-shrink: 0; 
+}
+
+.sidebar-header { 
+  font-family: var(--font-mono); 
+  color: var(--text-muted); 
+  font-size: 0.8rem; 
+  text-transform: uppercase; 
+  margin-bottom: 12px; 
+  letter-spacing: 0.5px; 
+}
+
+.sidebar-tab { 
+  display: flex; 
+  align-items: center; 
+  gap: 12px; 
+  padding: 14px 16px; 
+  border-radius: 8px; 
+  cursor: pointer; 
+  font-weight: 600; 
+  color: var(--text-muted); 
+  transition: all 0.2s; 
+}
+
+.sidebar-tab:hover {
+  transition: background-color 0.4s ease, border-color 0.4s ease, color 0.4s ease;
+}
+
+.sidebar-tab svg { 
+  width: 18px; 
+  height: 18px; 
+}
+
+.sidebar-tab.active { 
+  background-color: var(--neutral-border); 
+  color: var(--text-main); 
+}
+
+.settings-content { 
+  flex: 1; 
+  max-width: 700px; 
+  position: relative; 
+  height: 100%; 
+  overflow-y: auto; 
+  padding-right: 16px; 
+}
+
+.settings-pane { 
+  display: none; 
+  animation: fadeIn 0.3s ease; 
+}
+
+.settings-pane.active { 
+  display: block; 
+}
+
+/* Comutatoare On/Off (Folosite in modalul de Wi-Fi si Bluetooth) */
+.toggle-switch { 
+  width: 48px; 
+  height: 28px; 
+  background: var(--neutral-border); 
+  border-radius: 14px; 
+  position: relative; 
+  transition: background 0.3s; 
+  cursor: pointer; 
+}
+
+.toggle-switch::after { 
+  content: ""; 
+  position: absolute; 
+  top: 4px; 
+  left: 4px; 
+  width: 20px; 
+  height: 20px; 
+  background: white; 
+  border-radius: 50%; 
+  transition: transform 0.3s; 
+}
+
+.toggle-switch.active { 
+  background: var(--accent); 
+}
+
+.toggle-switch.active::after { 
+  transform: translateX(20px); 
+}

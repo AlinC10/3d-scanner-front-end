@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1366, height=768, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SCANCORE-3D OS - Help</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    
+    <!-- Librarie pt Markdown -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <!-- CSS Global -->
+    <link rel="stylesheet" href="css/theme.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/modals.css">
+    <link rel="stylesheet" href="css/ai-chat.css">
+    
+    <!-- CSS Specific Paginii -->
+    <link rel="stylesheet" href="css/help.css">
+    <link rel="stylesheet" href="css/markdown.css">
+</head>
+<body class="dark-theme">
+
+    <div id="app-wrapper" style="opacity: 1; display: flex; flex-direction: column; height: 100%; width: 100%;">
+        
+        <!-- HEADER COMUN -->
+        <header>
+            <div class="brand" data-action="nav" data-target="main-menu" style="cursor: pointer;">
+                <svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                SCANCORE-3D
+            </div>
+            <div class="nav-tabs">
+                <div class="nav-tab" data-action="nav" data-target="main-menu">Main Menu</div>
+                <div class="nav-tab" data-action="nav" data-target="library">Library</div>
+                <div class="nav-tab active" data-action="nav" data-target="help-screen">Help</div>
+            </div>
+           
+            <div class="system-status">
+                <span id="clock">00:00</span>
+                <svg viewBox="0 0 24 24" class="status-icon" id="btn-theme" title="Toggle Theme"></svg>
+                
+                <svg viewBox="0 0 24 24" class="status-icon" data-modal="bt-modal" title="Bluetooth"><polyline points="6.5 6.5 17.5 17.5 12 23 12 1 17.5 6.5 6.5 17.5"></polyline></svg>
+                
+                <!-- THE NEW GLOBE (Default state visible, matching the requested image) -->
+                <!-- THE NEW GLOBE (Acum poate fi apăsat pentru a deschide Wi-Fi) -->
+                <svg viewBox="0 0 24 24" class="status-icon" id="icon-no-net" title="No Network - Click to connect" data-modal="wifi-modal" style="cursor: pointer;">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="2" y1="12" x2="22" y2="12"></line>
+                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                    <line x1="4" y1="4" x2="20" y2="20" stroke-width="3" stroke="var(--bg-primary)"></line>
+                    <line x1="4" y1="4" x2="20" y2="20"></line>
+                </svg>
+
+                <!-- ETHERNET (Hidden initially) -->
+                <svg viewBox="0 0 24 24" class="status-icon" id="icon-ethernet" style="display: none;" title="Ethernet Connected">
+                    <rect x="4" y="4" width="16" height="12" rx="2" ry="2"></rect><line x1="12" y1="16" x2="12" y2="20"></line><line x1="8" y1="20" x2="16" y2="20"></line>
+                </svg>
+
+                <!-- WI-FI (Hidden initially) -->
+                <svg viewBox="0 0 24 24" class="status-icon" id="icon-wifi" style="display: none;" data-modal="wifi-modal" title="Wi-Fi">
+                    <path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line>
+                </svg>
+
+                <!-- SETTINGS -->
+                <svg viewBox="-2 -2 28 28" class="status-icon" id="icon-settings" data-action="nav" data-target="settings-screen" title="Settings">
+                    <g transform="scale(0.85) translate(2.1, 2.1)">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                    </g>
+                </svg>
+            </div>
+        </header>
+
+        <main>
+            <!-- HELP SCREEN -->
+            <section id="help-screen" class="screen active">
+                <div class="screen-header">
+                    <div class="screen-title-group">
+                        <h1>System Support</h1>
+                        <div class="screen-subtitle">Documentation & Guides</div>
+                    </div>
+                </div>
+
+                <div class="help-container">
+                    <div class="help-card" data-modal="doc-user-modal">
+                        <div class="help-card-title"><svg viewBox="0 0 24 24" style="width:18px;height:18px;margin-right:8px;"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>User Manual</div>
+                        <div class="help-card-desc">Read the system operations guide.</div>
+                    </div>
+                    <div class="help-card" data-modal="doc-tech-modal">
+                        <div class="help-card-title"><svg viewBox="0 0 24 24" style="width:18px;height:18px;margin-right:8px;"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>Technical Documentation</div>
+                        <div class="help-card-desc">Advanced specifications and architecture.</div>
+                    </div>
+
+                    <details style="background: var(--bg-secondary); border: 1px solid var(--neutral-border); border-radius: 12px; padding: 24px; cursor: pointer;">
+                        <summary style="font-weight: 600; font-size: 1.1rem; color: var(--text-main);">Frequently Asked Questions (FAQ)</summary>
+                        <div class="scrollable-panel" style="margin-top: 16px; display: flex; flex-direction: column; gap: 16px; color: var(--text-muted); font-size: 0.9rem; line-height: 1.5; max-height: 140px; overflow-y: auto; padding-right: 12px; margin-bottom: 8px;">
+                            <div>
+                                <strong style="color: var(--text-main);">Q: Do I need a powerful computer to process the scans?</strong><br>
+                                A: No. The scanner utilizes an edge-to-cloud architecture. Heavy photogrammetry processing is offloaded to elastic GPU instances in the cloud.
+                            </div>
+                            <div>
+                                <strong style="color: var(--text-main);">Q: How does the scanner know when to stop moving vertically?</strong><br>
+                                A: The scanner features an adaptive loop powered by a Time-of-Flight (ToF) laser sensor. If two consecutive readings hit the back wall instead of the object, it terminates the scan early to save time.
+                            </div>
+                            <div>
+                                <strong style="color: var(--text-main);">Q: What file formats can I export?</strong><br>
+                                A: You can export high-quality textured meshes (OBJ), 3D printable meshes (STL, 3MF), and web-optimized, Draco-compressed files (GLB).
+                            </div>
+                            <div>
+                                <strong style="color: var(--text-main);">Q: Why does the system delay the scan after I press start?</strong><br>
+                                A: Low-cost cameras and LED lights suffer from thermal drift during warmup. The system waits for the internal temperature and luminous flux to stabilize (drift < 3% over 10s) before locking exposure.
+                            </div>
+                            <div>
+                                <strong style="color: var(--text-main);">Q: Can I scan transparent or highly reflective objects?</strong><br>
+                                A: Passive photogrammetry naturally struggles with textureless surfaces. For highly reflective materials, applying a washable 3D scanning spray is recommended.
+                            </div>
+                        </div>
+                    </details>
+                </div>
+            </section>
+
+            <!-- MODALS GLOBALE -->
+            <div class="overlay" id="modal-overlay"></div>
+
+            <div class="os-modal" id="wifi-modal">
+                <div class="modal-header">
+                    <div class="modal-title"><svg viewBox="0 0 24 24"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg> Wi-Fi</div>
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <button class="close-btn" data-close="wifi-modal"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+                    </div>
+                </div>
+                <div class="modal-body list-view" id="wifi-list"></div>
+            </div>
+
+            <div class="os-modal" id="bt-modal">
+                <div class="modal-header">
+                    <div class="modal-title"><svg viewBox="0 0 24 24"><polyline points="6.5 6.5 17.5 17.5 12 23 12 1 17.5 6.5 6.5 17.5"></polyline></svg> Bluetooth</div>
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <button class="close-btn" data-close="bt-modal"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+                    </div>
+                </div>
+                <div class="modal-body list-view" id="bt-list"></div>
+            </div>
+
+            <!-- DOC MODALS -->
+            <div class="os-modal" id="doc-user-modal" style="width: 800px;">
+                <div class="modal-header">
+                    <div class="modal-title">User Manual</div>
+                    <button class="close-btn" data-close="doc-user-modal"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+                </div>
+                <div class="modal-body markdown-body" id="user-manual-content"></div>
+            </div>
+
+            <div class="os-modal" id="doc-tech-modal" style="width: 800px;">
+                <div class="modal-header">
+                    <div class="modal-title">Technical Documentation</div>
+                    <button class="close-btn" data-close="doc-tech-modal"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+                </div>
+                <div class="modal-body markdown-body" id="tech-doc-content"></div>
+            </div>
+
+            <!-- AI CHAT -->
+            <div class="ai-modal" id="ai-modal">
+                <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid var(--neutral-border); padding-bottom: 12px;">
+                    <span style="font-weight: 600; display:flex; align-items:center; gap:8px;"><svg viewBox="0 0 24 24" style="width:18px;height:18px; color:var(--accent);"><rect x="3" y="11" width="18" height="10" rx="2"></rect><circle cx="12" cy="5" r="2"></circle><path d="M12 7v4"></path></svg> ScanAssist AI</span>
+                    <div style="display: flex; gap: 8px;">
+                        <svg viewBox="0 0 24 24" style="width:20px;height:20px; cursor:pointer; color:var(--text-muted);" id="clear-ai" title="Clear Chat History"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                        <svg viewBox="0 0 24 24" style="width:24px;height:24px; cursor:pointer; color:var(--text-muted);" id="close-ai" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </div>
+                </div>
+                <div id="ai-chat-history" class="scrollable-panel" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; margin: 10px 0; padding-right: 5px;"></div>
+                <div style="display:flex; gap:8px; margin-top:8px;">
+                    <input type="text" id="ai-input" placeholder="Ask ScanAssist..." style="flex:1; background:var(--bg-primary); border:1px solid var(--neutral-border); color:var(--text-main); padding:10px; border-radius:6px; font-family:var(--font-main);">
+                    <button id="ai-send-btn" style="background:var(--accent); border:none; border-radius:6px; padding:10px; cursor:pointer;"><svg viewBox="0 0 24 24" style="width:16px;height:16px; stroke:var(--bg-primary);"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg></button>
+                </div>
+            </div>
+
+            <div class="fab" id="btn-fab">
+                <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"></rect><circle cx="12" cy="5" r="2"></circle><path d="M12 7v4"></path></svg>
+                <div><div style="font-size: 0.95rem;">SCANASSIST</div><div style="font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono);">AI Guidance</div></div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Scripturi -->
+    <script src="js/global.js"></script>
+    <script src="js/network.js"></script>
+    <script src="js/ai-chat.js"></script>
+    <script src="js/help.js"></script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+/* --- SCANNING PROGRESS SCREEN --- */
+.scan-progress-wrapper { 
+  transition: background-color 0.4s ease, border-color 0.4s ease, color 0.4s ease; 
+}
+
+.scanning-container { 
+  height: calc(100% - 80px); 
+  display: flex; 
+  flex-direction: row; 
+  gap: 32px; 
+  justify-content: center; 
+  align-items: center; 
+  width: 100%; 
+}
+
+.scan-title {
+  font-size: 1.6rem; 
+  text-align: center;
+}
