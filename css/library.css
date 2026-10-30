@@ -1,72 +1,259 @@
-/* --- LIBRARY GRID --- */
-.library-grid { 
-  display: grid; 
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); 
-  gap: 20px; 
-  padding-bottom: 24px; 
+/* =========================================
+   LIBRARY CSS (css/library.css)
+   ========================================= */
+
+/* --- HEADER GRID --- */
+.library-header {
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    margin-bottom: 25px;
 }
 
-.library-card { 
-  background-color: var(--bg-secondary); 
-  border: 1px solid var(--neutral-border); 
-  border-radius: 12px; 
-  overflow: hidden; 
-  display: flex; 
-  flex-direction: column; 
-  transition: transform 0.2s ease, border-color 0.2s ease; 
+.library-tabs {
+    display: flex;
+    background: var(--bg-secondary);
+    border: 1px solid var(--neutral-border);
+    border-radius: 6px;
+    overflow: hidden;
 }
 
-.library-card:hover { 
-  transform: translateY(-4px); 
-  border-color: var(--accent); 
+.lib-tab {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    padding: 8px 24px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    font-family: var(--font-main);
+    font-size: 0.95rem;
 }
 
-.library-cover { 
-  height: 160px; 
-  background-color: var(--bg-tertiary); 
-  display: flex; 
-  align-items: center; 
-  justify-content: center; 
-  border-bottom: 1px solid var(--neutral-border); 
-  overflow: hidden; 
-  position: relative; 
+.lib-tab.active {
+    background: var(--accent);
+    color: var(--bg-primary);
 }
 
-.library-cover img { 
-  width: 100%; 
-  height: 100%; 
-  object-fit: cover; 
+/* --- GRID CARDS --- */
+.library-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 24px;
+    overflow-y: auto;
+    padding-bottom: 20px;
+    flex: 1;
+    align-content: start; /* PREVINE ÎNTINDEREA PE VERTICALĂ a singurului card */
 }
 
-.library-info { 
-  padding: 16px; 
-  display: flex; 
-  flex-direction: column; 
-  gap: 6px; 
-  flex: 1; 
+.lib-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--neutral-border);
+    border-radius: 8px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.2s ease, border-color 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    height: 280px; /* ÎNĂLȚIME FIXĂ */
 }
 
-.library-title { 
-  font-size: 1.05rem; 
-  font-weight: 600; 
-  color: var(--text-main); 
-  white-space: nowrap; 
-  overflow: hidden; 
-  text-overflow: ellipsis; 
+
+
+.lib-card-preview {
+    flex: 1; /* Ocupă spațiul rămas din înălțimea fixă */
+    background: rgba(0, 0, 0, 0.2);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-bottom: 1px solid var(--neutral-border);
 }
 
-.library-meta { 
-  font-size: 0.8rem; 
-  color: var(--text-muted); 
-  font-family: var(--font-mono); 
-  margin-bottom: 16px; 
+.lib-card-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--neutral-border);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
 }
 
-.library-card .btn-primary { 
-  min-height: 38px; 
-  padding: 0 16px; 
-  font-size: 0.9rem; 
-  border-radius: 6px; 
-  width: 100%; 
-  margin-top: auto; 
+.lib-card-info {
+    padding: 16px;
+    height: 80px; /* Înălțime fixă pentru zona de text */
+    box-sizing: border-box;
+}
+
+.lib-card-title {
+    font-weight: 600;
+    font-size: 1.1rem;
+    margin-bottom: 8px;
+    color: var(--text-main);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.lib-card-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+}
+
+/* --- DETAIL VIEW (VIEWER & SIDEBAR) --- */
+.viewer-container {
+    flex: 1; 
+    background: var(--bg-secondary); 
+    border: 1px solid var(--neutral-border); 
+    border-radius: 8px; 
+    display: flex; 
+    flex-direction: column; 
+    overflow: hidden;
+}
+
+.viewer-header {
+    padding: 12px 20px; 
+    background: var(--bg-primary);
+    border-bottom: 1px solid var(--neutral-border); 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center;
+}
+
+.details-sidebar {
+    width: 340px; 
+    display: flex; 
+    flex-direction: column; 
+    gap: 15px;
+}
+
+.details-card {
+    background: var(--bg-secondary); 
+    border: 1px solid var(--neutral-border); 
+    border-radius: 8px; 
+    padding: 20px;
+}
+
+.details-card-title {
+    margin: 0 0 20px 0; 
+    font-size: 1.2rem; 
+    font-weight: 600;
+    color: var(--accent);
+}
+
+.details-label {
+    display: block;
+    font-size: 0.85rem; 
+    color: var(--text-muted);
+    margin-bottom: 6px;
+    font-weight: 500;
+}
+
+.details-input {
+    width: 100%;
+    background: var(--bg-primary);
+    border: 1px solid var(--neutral-border);
+    color: var(--text-main);
+    padding: 10px 12px;
+    border-radius: 6px;
+    font-family: var(--font-main);
+    box-sizing: border-box;
+}
+
+.details-input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.details-value-box {
+    background: var(--bg-primary); 
+    border: 1px solid var(--neutral-border);
+    padding: 10px 12px; 
+    border-radius: 6px; 
+    font-family: var(--font-mono); 
+    font-size: 0.9rem;
+    color: var(--text-main);
+}
+
+/* --- BUTOANE ACTIUNI (EXPORT & DELETE) --- */
+.btn-export {
+    padding: 16px !important; 
+    font-size: 1.05rem !important; 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center;
+    background: var(--accent) !important;
+}
+
+.btn-delete {
+    padding: 16px !important; 
+    font-size: 1.05rem !important; 
+    background: transparent !important; 
+    border: 1px solid #EF4444 !important; 
+    color: #EF4444 !important; 
+    border-radius: 6px !important; 
+    cursor: pointer; 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+    gap: 8px; 
+    margin-top: auto;
+    transition: background 0.2s;
+}
+
+.btn-delete:hover {
+    background: rgba(239, 68, 68, 0.1) !important;
+}
+
+.btn-back {
+    padding: 6px 12px !important;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+/* --- LOD BUTTONS & VIEWER BACKGROUND --- */
+.lod-btn {
+    padding: 6px 14px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+    font-family: var(--font-main);
+}
+.lod-btn.active {
+    background: var(--accent);
+    color: var(--bg-primary);
+}
+
+/* Fundal radial (spotlight) mai deschis pentru a vedea obiectele închise */
+#model-3d-canvas {
+    background: radial-gradient(circle at center, #3f4e66 0%, var(--bg-secondary) 100%);
+}
+/* --- LOD & FORMAT BUTTONS --- */
+.lod-btn {
+    padding: 10px 18px; /* Mărit pentru tap mai ușor */
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 0.95rem; /* Font mai mare */
+    transition: all 0.2s;
+    font-family: var(--font-main);
+}
+.lod-btn.active {
+    background: var(--accent);
+    color: var(--bg-primary);
 }

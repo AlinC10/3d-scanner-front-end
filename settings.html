@@ -12,6 +12,8 @@
     <link rel="stylesheet" href="css/components.css">
     <link rel="stylesheet" href="css/modals.css">
     <link rel="stylesheet" href="css/ai-chat.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/simple-keyboard@latest/build/css/index.css">
+    <link rel="stylesheet" href="css/keyb.css">
     
     <!-- CSS Specific -->
     <link rel="stylesheet" href="css/settings.css">
@@ -20,7 +22,7 @@
 
     <div id="app-wrapper" style="opacity: 1; display: flex; flex-direction: column; height: 100%; width: 100%;">
         
-        <!-- HEADER COMUN (Cu iconita de settings activa) -->
+        <!-- HEADER COMUN -->
         <header>
             <div class="brand" data-action="nav" data-target="main-menu" style="cursor: pointer;">
                 <svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
@@ -37,8 +39,6 @@
                 
                 <svg viewBox="0 0 24 24" class="status-icon" data-modal="bt-modal" title="Bluetooth"><polyline points="6.5 6.5 17.5 17.5 12 23 12 1 17.5 6.5 6.5 17.5"></polyline></svg>
                 
-                <!-- THE NEW GLOBE (Default state visible, matching the requested image) -->
-                <!-- THE NEW GLOBE (Acum poate fi apăsat pentru a deschide Wi-Fi) -->
                 <svg viewBox="0 0 24 24" class="status-icon" id="icon-no-net" title="No Network - Click to connect" data-modal="wifi-modal" style="cursor: pointer;">
                     <circle cx="12" cy="12" r="10"></circle>
                     <line x1="2" y1="12" x2="22" y2="12"></line>
@@ -47,17 +47,15 @@
                     <line x1="4" y1="4" x2="20" y2="20"></line>
                 </svg>
 
-                <!-- ETHERNET (Hidden initially) -->
                 <svg viewBox="0 0 24 24" class="status-icon" id="icon-ethernet" style="display: none;" title="Ethernet Connected">
                     <rect x="4" y="4" width="16" height="12" rx="2" ry="2"></rect><line x1="12" y1="16" x2="12" y2="20"></line><line x1="8" y1="20" x2="16" y2="20"></line>
                 </svg>
 
-                <!-- WI-FI (Hidden initially) -->
                 <svg viewBox="0 0 24 24" class="status-icon" id="icon-wifi" style="display: none;" data-modal="wifi-modal" title="Wi-Fi">
                     <path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line>
                 </svg>
 
-                <!-- SETTINGS -->
+                <!-- SETTINGS ICON ACTIVE -->
                 <svg viewBox="-2 -2 28 28" class="status-icon active-icon" id="icon-settings" data-action="nav" data-target="settings-screen" title="Settings">
                     <g transform="scale(0.85) translate(2.1, 2.1)">
                         <circle cx="12" cy="12" r="3"></circle>
@@ -73,19 +71,29 @@
                 <div class="screen-header">
                     <div class="screen-title-group">
                         <h1>System Settings</h1>
-                        <div class="screen-subtitle">Developer Menu</div>
+                        <div class="screen-subtitle">Hardware & Developer Menu</div>
                     </div>
                 </div>
                 
                 <div class="settings-page-layout">
+                    <!-- MENIU LATERAL -->
                     <aside class="settings-sidebar">
                         <div class="sidebar-header">SETTINGS</div>
-                        <div class="sidebar-tab active" data-tab-target="tab-api" style="color: var(--accent); pointer-events: none;">
+                        <div class="sidebar-tab active" data-tab-target="tab-api">
                             <svg viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg> Hardware API Tester
+                        </div>
+                        <div class="sidebar-tab" data-tab-target="tab-lights">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="4.22" x2="19.78" y2="5.64"></line></svg> Lights Control
+                        </div>
+                        <div class="sidebar-tab" data-tab-target="tab-power" style="color: #EF4444;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line></svg> System Power
                         </div>
                     </aside>
 
+                    <!-- CONȚINUT SETĂRI -->
                     <div class="settings-content">
+                        
+                        <!-- TAB 1: API TESTER -->
                         <div class="settings-pane active" id="tab-api">
                             <h2 style="font-size: 1.4rem; margin-bottom: 8px;">Hardware API Tester</h2>
                             <p style="color: var(--text-muted); margin-bottom: 24px; font-size: 0.9rem;">Test endpoints directly via JSON payload.</p>
@@ -125,12 +133,61 @@
                                 <pre id="api-tester-response" class="scrollable-panel" style="width: 100%; height: 120px; overflow-y: auto; background: var(--bg-tertiary); color: var(--text-main); font-family: var(--font-mono); padding: 12px; border: 1px solid var(--neutral-border); border-radius: 6px;">Response will appear here.</pre>
                             </div>
                         </div>
+
+                       <!-- TAB 2: LIGHTS CONTROL -->
+                        <div class="settings-pane" id="tab-lights">
+                            <h2 style="font-size: 1.4rem; margin-bottom: 8px;">Lights Control</h2>
+                            <p style="color: var(--text-muted); margin-bottom: 24px; font-size: 0.9rem;">Manually toggle and adjust the scanner's LED ring.</p>
+                            
+                            <div class="setting-row-box" style="padding: 24px; flex-direction: column; align-items: stretch; gap: 24px;">
+                                <!-- Toggle ON/OFF -->
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <div style="font-weight: 600; font-size: 1.1rem; margin-bottom: 4px;">LED Ring Power</div>
+                                        <div style="font-size: 0.85rem; color: var(--text-muted);">Turn on the lights for inspection.</div>
+                                    </div>
+                                    <div class="toggle-switch" id="toggle-manual-lights"></div>
+                                </div>
+                                
+                                <!-- Slider Brightness -->
+                                <div style="display: flex; flex-direction: column; gap: 12px; border-top: 1px solid var(--neutral-border); padding-top: 24px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <label style="font-weight: 600;">Brightness</label>
+                                        <span id="lights-brightness-val" style="font-family: var(--font-mono); color: var(--text-muted);">100%</span>
+                                    </div>
+                                    <input type="range" id="lights-brightness-slider" min="10" max="100" value="100" step="5" style="width: 100%;">
+                                </div>
+                            </div>
+                        </div>
+<!-- TAB 3: SYSTEM POWER -->
+                        <div class="settings-pane" id="tab-power">
+                            <h2 style="font-size: 1.4rem; margin-bottom: 8px;">System Power</h2>
+                            <p style="color: var(--text-muted); margin-bottom: 24px; font-size: 0.9rem;">Safely reboot the Raspberry Pi.</p>
+                            
+                            <div class="setting-row-box" style="padding: 24px; flex-direction: column; gap: 16px; border-color: rgba(239, 68, 68, 0.3);">
+                                <div style="display: flex; align-items: center; gap: 12px; color: #EF4444;">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 24px; height: 24px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                                    <div style="font-weight: 600; font-size: 1.1rem;">Warning</div>
+                                </div>
+                                <div style="font-size: 0.9rem; color: var(--text-muted); line-height: 1.5;">
+                                    Initiating a reboot will immediately stop all ongoing processes, including active scans. Please ensure no tasks are running before proceeding.
+                                </div>
+                                <div style="display: flex; gap: 12px; width: 100%; margin-top: 8px;">
+                                    <!-- A RĂMAS DOAR BUTONUL REBOOT, făcându-l buton principal -->
+                                    <button class="btn-primary" id="btn-system-reboot" style="width: 100%; justify-content: center; height: 44px; background: red; border: none;">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 24px; margin-right: 8px;"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
+                                        Reboot System
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </section>
 
             <!-- MODALS GLOBALE -->
             <div class="overlay" id="modal-overlay"></div>
+            
             <div class="os-modal" id="wifi-modal">
                 <div class="modal-header">
                     <div class="modal-title"><svg viewBox="0 0 24 24"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg> Wi-Fi</div>
@@ -140,6 +197,7 @@
                 </div>
                 <div class="modal-body list-view" id="wifi-list"></div>
             </div>
+            
             <div class="os-modal" id="bt-modal">
                 <div class="modal-header">
                     <div class="modal-title"><svg viewBox="0 0 24 24"><polyline points="6.5 6.5 17.5 17.5 12 23 12 1 17.5 6.5 6.5 17.5"></polyline></svg> Bluetooth</div>
@@ -161,11 +219,12 @@
                 </div>
                 <div id="ai-chat-history" class="scrollable-panel" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; margin: 10px 0; padding-right: 5px;"></div>
                 <div style="display:flex; gap:8px; margin-top:8px;">
-                    <input type="text" id="ai-input" placeholder="Ask ScanAssist..." style="flex:1; background:var(--bg-primary); border:1px solid var(--neutral-border); color:var(--text-main); padding:10px; border-radius:6px; font-family:var(--font-main);">
+<textarea id="ai-input" placeholder="Ask ScanAssist..." style="flex:1; background:var(--bg-primary); border:1px solid var(--neutral-border); color:var(--text-main); padding:10px; border-radius:6px; font-family:var(--font-main); resize: none; height: 42px; line-height: 20px; overflow-y: hidden;"></textarea>                    
                     <button id="ai-send-btn" style="background:var(--accent); border:none; border-radius:6px; padding:10px; cursor:pointer;"><svg viewBox="0 0 24 24" style="width:16px;height:16px; stroke:var(--bg-primary);"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg></button>
                 </div>
             </div>
 
+            <!-- AI FAB -->
             <div class="fab" id="btn-fab">
                 <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"></rect><circle cx="12" cy="5" r="2"></circle><path d="M12 7v4"></path></svg>
                 <div><div style="font-size: 0.95rem;">SCANASSIST</div><div style="font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono);">AI Guidance</div></div>
@@ -174,10 +233,27 @@
         </main>
     </div>
 
-    <!-- Scripturi -->
+    <!-- ================= TASTATURA VIRTUALĂ ================= -->
+    <div id="keyboard-super-wrapper">
+        <div class="keyboardContainer" style="position: relative; width: 100%;">
+            <div class="simple-keyboard"></div>
+        </div>
+    </div>
+
+    <!-- LIBRĂRII EXTERNE PENTRU TASTATURĂ -->
+    <script src="https://cdn.jsdelivr.net/npm/simple-keyboard@latest/build/index.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/simple-keyboard-autocorrect@latest/build/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/swipe-keyboard@latest/build/index.min.js"></script>
+
+    <!-- SCRIPTURI CORE APLICAȚIE (Incluse O SINGURĂ DATĂ!) -->
     <script src="js/global.js"></script>
     <script src="js/network.js"></script>
     <script src="js/ai-chat.js"></script>
+    
+    <!-- SCRIPT SPECIFIC PAGINII -->
     <script src="js/settings.js"></script>
+
+    <!-- INIȚIALIZARE TASTATURĂ (Obligatoriu ULTIMUL) -->
+    <script src="js/keyboard-init.js"></script>
 </body>
 </html>

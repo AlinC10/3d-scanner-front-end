@@ -15,7 +15,8 @@
     <link rel="stylesheet" href="css/components.css">
     <link rel="stylesheet" href="css/modals.css">
     <link rel="stylesheet" href="css/ai-chat.css">
-    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/simple-keyboard@latest/build/css/index.css">
+    <link rel="stylesheet" href="css/keyb.css">
     <!-- CSS Specific Paginii -->
     <link rel="stylesheet" href="css/help.css">
     <link rel="stylesheet" href="css/markdown.css">
@@ -42,8 +43,6 @@
                 
                 <svg viewBox="0 0 24 24" class="status-icon" data-modal="bt-modal" title="Bluetooth"><polyline points="6.5 6.5 17.5 17.5 12 23 12 1 17.5 6.5 6.5 17.5"></polyline></svg>
                 
-                <!-- THE NEW GLOBE (Default state visible, matching the requested image) -->
-                <!-- THE NEW GLOBE (Acum poate fi apăsat pentru a deschide Wi-Fi) -->
                 <svg viewBox="0 0 24 24" class="status-icon" id="icon-no-net" title="No Network - Click to connect" data-modal="wifi-modal" style="cursor: pointer;">
                     <circle cx="12" cy="12" r="10"></circle>
                     <line x1="2" y1="12" x2="22" y2="12"></line>
@@ -52,17 +51,14 @@
                     <line x1="4" y1="4" x2="20" y2="20"></line>
                 </svg>
 
-                <!-- ETHERNET (Hidden initially) -->
                 <svg viewBox="0 0 24 24" class="status-icon" id="icon-ethernet" style="display: none;" title="Ethernet Connected">
                     <rect x="4" y="4" width="16" height="12" rx="2" ry="2"></rect><line x1="12" y1="16" x2="12" y2="20"></line><line x1="8" y1="20" x2="16" y2="20"></line>
                 </svg>
 
-                <!-- WI-FI (Hidden initially) -->
                 <svg viewBox="0 0 24 24" class="status-icon" id="icon-wifi" style="display: none;" data-modal="wifi-modal" title="Wi-Fi">
                     <path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line>
                 </svg>
 
-                <!-- SETTINGS -->
                 <svg viewBox="-2 -2 28 28" class="status-icon" id="icon-settings" data-action="nav" data-target="settings-screen" title="Settings">
                     <g transform="scale(0.85) translate(2.1, 2.1)">
                         <circle cx="12" cy="12" r="3"></circle>
@@ -73,7 +69,7 @@
         </header>
 
         <main>
-            <!-- HELP SCREEN -->
+            <!-- HELP SCREEN (Layout-ul inițial a fost restaurat) -->
             <section id="help-screen" class="screen active">
                 <div class="screen-header">
                     <div class="screen-title-group">
@@ -94,7 +90,8 @@
 
                     <details style="background: var(--bg-secondary); border: 1px solid var(--neutral-border); border-radius: 12px; padding: 24px; cursor: pointer;">
                         <summary style="font-weight: 600; font-size: 1.1rem; color: var(--text-main);">Frequently Asked Questions (FAQ)</summary>
-                        <div class="scrollable-panel" style="margin-top: 16px; display: flex; flex-direction: column; gap: 16px; color: var(--text-muted); font-size: 0.9rem; line-height: 1.5; max-height: 140px; overflow-y: auto; padding-right: 12px; margin-bottom: 8px;">
+                        <!-- FAQ: max-height crescut de la 140px la 400px pentru a fi mai ușor de citit/scrollat -->
+                        <div class="scrollable-panel" style="margin-top: 16px; display: flex; flex-direction: column; gap: 16px; color: var(--text-muted); font-size: 0.9rem; line-height: 1.5; max-height: 400px; overflow-y: auto; padding-right: 12px; margin-bottom: 8px;">
                             <div>
                                 <strong style="color: var(--text-main);">Q: Do I need a powerful computer to process the scans?</strong><br>
                                 A: No. The scanner utilizes an edge-to-cloud architecture. Heavy photogrammetry processing is offloaded to elastic GPU instances in the cloud.
@@ -143,21 +140,21 @@
                 <div class="modal-body list-view" id="bt-list"></div>
             </div>
 
-            <!-- DOC MODALS -->
-            <div class="os-modal" id="doc-user-modal" style="width: 800px;">
-                <div class="modal-header">
+            <!-- DOC MODALS - RE-STYLED TO FILL SCREEN AND BE SCROLLABLE -->
+            <div class="os-modal" id="doc-user-modal" style="width: 90vw; max-width: 1200px; height: 85vh; display: flex; flex-direction: column;">
+                <div class="modal-header" style="flex-shrink: 0;">
                     <div class="modal-title">User Manual</div>
                     <button class="close-btn" data-close="doc-user-modal"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
                 </div>
-                <div class="modal-body markdown-body" id="user-manual-content"></div>
+                <div class="modal-body markdown-body scrollable-panel" id="user-manual-content" style="flex: 1; overflow-y: auto; padding: 24px; font-size: 1.05rem;"></div>
             </div>
 
-            <div class="os-modal" id="doc-tech-modal" style="width: 800px;">
-                <div class="modal-header">
+            <div class="os-modal" id="doc-tech-modal" style="width: 90vw; max-width: 1200px; height: 85vh; display: flex; flex-direction: column;">
+                <div class="modal-header" style="flex-shrink: 0;">
                     <div class="modal-title">Technical Documentation</div>
                     <button class="close-btn" data-close="doc-tech-modal"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
                 </div>
-                <div class="modal-body markdown-body" id="tech-doc-content"></div>
+                <div class="modal-body markdown-body scrollable-panel" id="tech-doc-content" style="flex: 1; overflow-y: auto; padding: 24px; font-size: 1.05rem;"></div>
             </div>
 
             <!-- AI CHAT -->
@@ -171,8 +168,7 @@
                 </div>
                 <div id="ai-chat-history" class="scrollable-panel" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; margin: 10px 0; padding-right: 5px;"></div>
                 <div style="display:flex; gap:8px; margin-top:8px;">
-                    <input type="text" id="ai-input" placeholder="Ask ScanAssist..." style="flex:1; background:var(--bg-primary); border:1px solid var(--neutral-border); color:var(--text-main); padding:10px; border-radius:6px; font-family:var(--font-main);">
-                    <button id="ai-send-btn" style="background:var(--accent); border:none; border-radius:6px; padding:10px; cursor:pointer;"><svg viewBox="0 0 24 24" style="width:16px;height:16px; stroke:var(--bg-primary);"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg></button>
+<textarea id="ai-input" placeholder="Ask ScanAssist..." style="flex:1; background:var(--bg-primary); border:1px solid var(--neutral-border); color:var(--text-main); padding:10px; border-radius:6px; font-family:var(--font-main); resize: none; height: 42px; line-height: 20px; overflow-y: hidden;"></textarea>                    <button id="ai-send-btn" style="background:var(--accent); border:none; border-radius:6px; padding:10px; cursor:pointer;"><svg viewBox="0 0 24 24" style="width:16px;height:16px; stroke:var(--bg-primary);"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg></button>
                 </div>
             </div>
 
@@ -184,10 +180,21 @@
         </main>
     </div>
 
-    <!-- Scripturi -->
+  <!-- ================= TASTATURA VIRTUALĂ ================= -->
+    <div id="keyboard-super-wrapper">
+        <div class="keyboardContainer" style="position: relative; width: 100%;">
+            <div class="simple-keyboard"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/simple-keyboard@latest/build/index.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/simple-keyboard-autocorrect@latest/build/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/swipe-keyboard@latest/build/index.min.js"></script>
+
     <script src="js/global.js"></script>
     <script src="js/network.js"></script>
     <script src="js/ai-chat.js"></script>
     <script src="js/help.js"></script>
+    <script src="js/keyboard-init.js"></script>
 </body>
 </html>

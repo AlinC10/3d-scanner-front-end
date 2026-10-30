@@ -76,7 +76,7 @@ input:focus {
   border-color: var(--accent);
 }
 
-/* --- SPINNER & SCROLLBARS --- */
+/* --- SPINNER & SCROLLBARS (OPTIMIZATE PENTRU TOUCHSCREEN) --- */
 @keyframes spin {
   100% {
     transform: rotate(360deg);
@@ -89,18 +89,100 @@ input:focus {
   display: block;
 }
 
+/* Modificări pentru scroll mult mai eficient pe ecranul tactil */
 *::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 16px;  /* Lățime dublată pentru a fi ușor de apucat cu degetul */
+  height: 16px;
 }
 *::-webkit-scrollbar-track {
-  background: transparent;
+  background: rgba(255, 255, 255, 0.05); /* Ușor vizibil pentru context */
+  border-radius: 8px;
 }
 *::-webkit-scrollbar-thumb {
-  background: var(--neutral-border);
-  border-radius: 4px;
-  border: 2px solid var(--bg-primary);
+  background: var(--neutral-border); /* Culoare de bază vizibilă */
+  border-radius: 8px;
+  border: 4px solid var(--bg-primary); /* Margini transparente false pentru a nu părea uriaș */
 }
+*::-webkit-scrollbar-thumb:active,
 *::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
+  background: var(--text-muted); /* Culoare intensificată la atingere */
+}
+
+
+/* =========================================
+   CUSTOM SLIDERS (RANGE INPUTS)
+   ========================================= */
+
+/* Resetare stil implicit */
+input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    background: transparent;
+    margin: 8px 0;
+}
+
+input[type="range"]:focus {
+    outline: none;
+}
+
+/* Stil pentru BARA slider-ului (Firefox - cel de pe Pi) */
+input[type="range"]::-moz-range-track {
+    width: 100%;
+    height: 10px; /* Puțin mai gros pentru touch */
+    cursor: pointer;
+    background: var(--bg-primary);
+    border: 1px solid var(--neutral-border);
+    border-radius: 5px;
+}
+
+/* Stil pentru BUTONUL slider-ului (Firefox) */
+input[type="range"]::-moz-range-thumb {
+    height: 24px; /* Mai mare pentru touch */
+    width: 24px;
+    border: none;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+    transition: transform 0.1s ease;
+}
+
+input[type="range"]::-moz-range-thumb:hover,
+input[type="range"]::-moz-range-thumb:active {
+    transform: scale(1.15); /* Feedback mai puternic la atingere */
+}
+
+/* ----------------------------------------- */
+/* Același stil și pentru Webkit (Chrome/Edge/Safari pe laptop) */
+input[type="range"]::-webkit-slider-runnable-track {
+    width: 100%;
+    height: 10px;
+    cursor: pointer;
+    background: var(--bg-primary);
+    border: 1px solid var(--neutral-border);
+    border-radius: 5px;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    height: 24px;
+    width: 24px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    -webkit-appearance: none;
+    margin-top: -7px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+    transition: transform 0.1s ease;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover,
+input[type="range"]::-webkit-slider-thumb:active {
+    transform: scale(1.15);
+}
+
+.scrollable-panel {
+    overflow-y: auto;
+    touch-action: pan-y; /* Permite doar interacțiunea nativă sus-jos, ajută scriptul JS */
+    -webkit-overflow-scrolling: touch; /* Forțează inerția pe ecranele tactile */
 }

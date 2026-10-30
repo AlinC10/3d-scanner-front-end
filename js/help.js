@@ -19,8 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             // Adăugăm ?t=timestamp ca să forțăm browserul să nu țină documentația veche în cache
-            const response = await fetch(`${API_URL}/docs/${filename}?t=${new Date().getTime()}`);
-            
+const response = await fetch(`${API_URL}/ai-docs/${filename}?t=${new Date().getTime()}`);            
             if (!response.ok) throw new Error('File not found');
             
             const text = await response.text();

@@ -104,4 +104,140 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     });
+
+    const Keyboard = window.SimpleKeyboard.default;
+    const wrapper = document.getElementById('keyboard-super-wrapper');
+    let selectedInput = null;
+    
+    const myKeyboard = new Keyboard({
+        // ==========================================
+        // AICI DEFINIM LAYOUT-UL PERSONALIZAT
+        // ==========================================
+        layout: {
+            'default': [
+                '~ ! @ # $ % ^ & * ( ) _ + {bksp}',
+                '{tab} q w e r t y u i o p [ ] \\',
+                '{lock} a s d f g h j k l ; \' {enter}',
+                '{shift} z x c v b n m , . ? {send}',
+                '.com {space} @'
+            ],
+            'shift': [
+                '` 1 2 3 4 5 6 7 8 9 0 - = {bksp}',
+                '{tab} Q W E R T Y U I O P { } |',
+                '{lock} A S D F G H J K L : " {enter}',
+                '{shift} Z X C V B N M < > / {send}',
+                '.com {space} @'
+            ]
+        },
+        display: {
+            '{send}': 'send ➔',
+            '{bksp}': 'backspace',
+            '{enter}': 'enter',
+            '{shift}': 'shift',
+            '{tab}': 'tab',
+            '{lock}': 'caps',
+            '{space}': ' '
+        },
+        newLineOnEnter: true,
+        // ==========================================
+        tabCharOnTab: true,
+        onChange: input => {
+            if (selectedInput) {
+                selectedInput.value = input;
+            }
+        },
+        onKeyPress: button => {
+            // Dacă apasă Enter sau Escape, se închide tastatura
+            if ( button === "{escape}") {
+                closeKeyboard();
+            }
+            if (button === "{send}") {
+                if (selectedInput && selectedInput.id === 'ai-input') {
+                    const sendBtn = document.getElementById('ai-send-btn');
+                    if (sendBtn) sendBtn.click(); // Apasă butonul real de trimitere
+                }
+            }
+            // Dacă apasă Shift sau Caps Lock, schimbăm layout-ul
+            if (button === "{shift}" || button === "{lock}") {
+                handleShift();
+            }
+        }
+    });
+
+    // Funcția care comută între litere mici (default) și mari (shift)
+    function handleShift() {
+        let currentLayout = myKeyboard.options.layoutName;
+        let shiftToggle = currentLayout === "default" ? "shift" : "default";
+
+        myKeyboard.setOptions({
+            layoutName: shiftToggle
+        });
+    }
+
+    function closeKeyboard() {
+        wrapper.style.display = "none";
+        document.body.classList.remove("keyboard-is-open");
+        if (selectedInput) selectedInput.blur();
+    }
+
+    document.querySelectorAll("input[type='text'], input[type='password'], input[type='email'], input[type='number'], textarea").forEach(input => {
+        input.addEventListener("focus", (e) => {
+            selectedInput = e.target;
+            myKeyboard.setInput(e.target.value); 
+            wrapper.style.display = "block"; 
+            document.body.classList.add("keyboard-is-open");
+        });
+    });
+
+    document.addEventListener('click', (e) => {
+        if (selectedInput && !wrapper.contains(e.target) && e.target !== selectedInput) {
+            closeKeyboard();
+        }
+    });
+    const scrollablePanels = document.querySelectorAll('.scrollable-panel');
+
+    scrollablePanels.forEach(panel => {
+        let isDown = false;
+        let startY;
+        let scrollTop;
+
+        // Când atingi ecranul (sau apeși click)
+        panel.addEventListener('pointerdown', (e) => {
+            // Lăsăm utilizatorul să interacționeze normal cu butoanele și sliderele
+            const targetTag = e.target.tagName.toUpperCase();
+            if (['INPUT', 'TEXTAREA', 'BUTTON', 'SELECT', 'OPTION', 'A', 'SVG', 'PATH', 'POLYLINE'].includes(targetTag) || e.target.closest('.toggle-switch')) {
+                return;
+            }
+            
+            isDown = true;
+            startY = e.pageY;
+            scrollTop = panel.scrollTop;
+            panel.style.cursor = 'grabbing';
+        });
+
+        // Când ieși cu degetul din zonă
+        panel.addEventListener('pointerleave', () => {
+            isDown = false;
+            panel.style.cursor = 'default';
+        });
+
+        // Când ridici degetul de pe ecran
+        panel.addEventListener('pointerup', () => {
+            isDown = false;
+            panel.style.cursor = 'default';
+        });
+
+        // În timp ce tragi degetul pe ecran
+        panel.addEventListener('pointermove', (e) => {
+            if (!isDown) return;
+            
+            // Prevenim comportamentul default al browserului care ar putea bloca scroll-ul
+            e.preventDefault(); 
+            
+            const y = e.pageY;
+            const walk = (y - startY) * 1.5; // 1.5 este viteza de scroll (mărește-o dacă vrei să se miște mai repede)
+            panel.scrollTop = scrollTop - walk;
+        });
+    });
 });
+

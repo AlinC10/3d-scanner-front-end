@@ -53,3 +53,27 @@ svg {
   stroke-linejoin: round;
   fill: none;
 }
+
+/* =========================================
+   TOUCHSCREEN FIXES (Zoom 3D & Swipe Scroll)
+   ========================================= */
+
+/* 1. Permite "Pinch-to-Zoom" (2 degete) pentru viewer-ul 3D */
+/* Blocând acțiunile native, lăsăm OrbitControls (Three.js) să preia complet gesturile tactile */
+#model-3d-canvas,
+#model-3d-canvas canvas {
+    touch-action: none !important; 
+}
+
+/* 2. Activează "Swipe to Scroll" fluid pentru TOATE zonele care necesită derulare */
+.scrollable-panel,
+.settings-panel,
+.library-grid,
+.modal-body,
+#ai-chat-history,
+details > div {
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important; /* Activează derularea cu inerție specifică telefoanelor/tabletelor */
+    touch-action: pan-y !important; /* Forțează browserul să recunoască exclusiv gestul de glisare verticală (swipe up/down) */
+    overscroll-behavior-y: contain !important; /* Previne blocajele de tip "pull-to-refresh" la marginile listei */
+}

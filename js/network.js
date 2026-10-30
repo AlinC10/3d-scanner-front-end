@@ -1,17 +1,25 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // Folosim IP-ul fix, obligatoriu pentru funcționarea pe modulul Kiosk al Pi-ului
     const API_URL = 'http://127.0.0.1:8000';
 
     let wifiScanInterval = null;
     let currentConnectedSSID = null;
+    let currentConnectedBT = null;
+    
     let isWifiPowerOn = true;
     let isBtPowerOn = true;
 
-    const autoScanToggle = document.getElementById('auto-scan-wifi');
+    // Nouă variabilă de stare pentru a bloca acțiunile pe rețea în timpul scanării 3D (Eroarea 409 din doc)
+    let isScannerBusy = false;
+
     const btnRefreshWifi = document.getElementById('btn-refresh-wifi');
     const btnRefreshBt = document.getElementById('btn-refresh-bt');
     const toggleWifiPower = document.getElementById('toggle-wifi-power');
     const toggleBtPower = document.getElementById('toggle-bt-power');
+    
+    const loadingSVG = `<svg viewBox="0 0 24 24" class="spinner" style="width: 32px; height: 32px;"><circle cx="12" cy="12" r="10" stroke-width="3" stroke-dasharray="31.4 31.4" fill="none" stroke-linecap="round"></circle></svg>`;
 
+    // --- FUNCȚII UI DE BAZĂ ---
     function showNetworkIcon(type) {
         const iconEthernet = document.getElementById('icon-ethernet');
         const iconWifiMain = document.getElementById('icon-wifi');
@@ -21,34 +29,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (iconWifiMain) iconWifiMain.style.display = (type === 'wifi') ? 'block' : 'none';
         if (iconNoNet) iconNoNet.style.display = (type === 'none') ? 'block' : 'none';
     }
-
-    async function initNetworkDetection() {
-        if (!navigator.onLine) {
-            showNetworkIcon('none');
-            return;
-        }
-
-        try {
-            const res = await fetch(`${API_URL}/system/ethernet/status`);
-            await new Promise(resolve => setTimeout(resolve, 1200)); // Delay vizual
-
-            if (res.ok) {
-                showNetworkIcon('ethernet');
-            } else {
-                showNetworkIcon('none'); // Rămâne pe Glob așteptând utilizatorul
-            }
-        } catch(e) {
-            await new Promise(resolve => setTimeout(resolve, 1200));
-            showNetworkIcon('none'); 
-        }
-    }
-
-    window.addEventListener('online', initNetworkDetection);
-    window.addEventListener('offline', () => showNetworkIcon('none'));
-    
-    initNetworkDetection();
-
-    const loadingSVG = `<svg viewBox="0 0 24 24" class="spinner" style="width: 32px; height: 32px;"><circle cx="12" cy="12" r="10" stroke-width="3" stroke-dasharray="31.4 31.4" fill="none" stroke-linecap="round"></circle></svg>`;
 
     function renderDisabledState(containerId, title, desc) {
         const el = document.getElementById(containerId);
@@ -60,41 +40,113 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
     }
 
+    // --- NOU: VERIFICARE STATUS GLOBAL (Sursa unică de adevăr) ---
+    // Conform "GET /system/status NEW" - Polled every 5-15s
+    async function checkGlobalNetworkState() {
+        let isEthernetActive = false;
+        let isWifiActive = false;
+
+        try {
+            // Mai întâi verificăm starea scanerului pentru a ști dacă blocăm butoanele de rețea
+            const scannerRes = await fetch(`${API_URL}/scanner/status?t=${Date.now()}`).catch(() => null);
+            if (scannerRes && scannerRes.ok) {
+                const scannerData = await scannerRes.json();
+                // Blocăm rețeaua doar dacă scanerul lucrează activ
+                isScannerBusy = ["preparing", "running", "processing", "downloading", "uploading"].includes(scannerData.state);
+            }
+
+            // Apoi tragem starea globală a sistemului
+            const sysRes = await fetch(`${API_URL}/system/status?t=${Date.now()}`).catch(() => null);
+            
+            if (sysRes && sysRes.ok) {
+                const sysData = await sysRes.json();
+
+                // 1. Verificare ETHERNET din structura nouă
+                if (sysData.ethernet) {
+                    if (sysData.ethernet.cable_plugged === true && sysData.ethernet.state === 'connected') {
+                        isEthernetActive = true;
+                    }
+                }
+
+                // 2. Verificare WI-FI din structura nouă
+                if (sysData.wifi) {
+                    isWifiPowerOn = sysData.wifi.enabled === true;
+                    
+                    if (sysData.wifi.state === 'connected' && sysData.wifi.connected === true && sysData.wifi.ssid) {
+                        isWifiActive = true;
+                        currentConnectedSSID = sysData.wifi.ssid;
+                    } else {
+                        currentConnectedSSID = null;
+                    }
+                }
+
+                // 3. Verificare BLUETOOTH
+                if (sysData.bluetooth) {
+                    isBtPowerOn = sysData.bluetooth.powered === true;
+                }
+                
+                // Actualizăm butoanele de power conform realității
+                if (toggleWifiPower) {
+                    isWifiPowerOn ? toggleWifiPower.classList.add('active') : toggleWifiPower.classList.remove('active');
+                }
+                if (toggleBtPower) {
+                    isBtPowerOn ? toggleBtPower.classList.add('active') : toggleBtPower.classList.remove('active');
+                }
+            }
+        } catch(e) {
+            console.warn("Nu mă pot conecta la API-ul Python.");
+        }
+
+        // --- APLICARE INTERFAȚĂ ICONIȚE ---
+        if (isEthernetActive) {
+            showNetworkIcon('ethernet');
+        } else if (isWifiActive) {
+            showNetworkIcon('wifi');
+        } else {
+            showNetworkIcon('none');
+        }
+    }
+
+    // Inițializare (Polled every 5 secunde conform documentației)
+    checkGlobalNetworkState().then(() => {
+        setInterval(checkGlobalNetworkState, 5000);
+    });
+
+    window.addEventListener('online', checkGlobalNetworkState);
+    window.addEventListener('offline', checkGlobalNetworkState);
+
+
+    // --- WIFI TOGGLE & SCAN (Cu protecție 409) ---
     if(toggleWifiPower) {
         toggleWifiPower.addEventListener('click', async function() {
+            if (isScannerBusy) { alert("Network actions are disabled during an active scan."); return; }
+
             isWifiPowerOn = !isWifiPowerOn;
-            
             if(isWifiPowerOn) {
                 this.classList.add('active');
-                loadWiFiNetworks();
-                if(autoScanToggle && autoScanToggle.checked) startAutoScan();
+                loadWiFiNetworks(false);
+                startAutoScan(); 
             } else {
                 this.classList.remove('active');
                 window.stopAutoScan();
-                renderDisabledState('wifi-list', 'Wi-Fi Disabled', 'Connect to nearby networks by turning on Wi-Fi using the toggle above.');
-                showNetworkIcon('none'); // Revine la glob daca opresti wifi
+                currentConnectedSSID = null; 
+                renderDisabledState('wifi-list', 'Wi-Fi Disabled', 'Turn on Wi-Fi to connect to nearby networks.');
+                checkGlobalNetworkState(); 
             }
-            try { await fetch(`${API_URL}/system/wifi/power/${isWifiPowerOn ? 'on' : 'off'}`); } catch(e){}
-        });
-    }
-
-    if(toggleBtPower) {
-        toggleBtPower.addEventListener('click', async function() {
-            isBtPowerOn = !isBtPowerOn;
-            if(isBtPowerOn) {
-                this.classList.add('active');
-                loadBluetoothDevices();
-            } else {
-                this.classList.remove('active');
-                renderDisabledState('bt-list', 'Bluetooth Disabled', 'Connect to nearby Bluetooth devices by using the toggle above.');
-            }
-            try { await fetch(`${API_URL}/system/bluetooth/power/${isBtPowerOn ? 'on' : 'off'}`); } catch(e){}
+            try { 
+                await fetch(`${API_URL}/system/wifi/power`, {
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ "state": isWifiPowerOn ? "on" : "off" })
+                }); 
+            } catch(e){}
         });
     }
 
     function startAutoScan() {
-        if(autoScanToggle && autoScanToggle.checked && isWifiPowerOn) {
-            wifiScanInterval = setInterval(loadWiFiNetworks, 10000);
+        window.stopAutoScan();
+        if(isWifiPowerOn) {
+            wifiScanInterval = setInterval(() => loadWiFiNetworks(false), 10000);
         }
     }
     
@@ -102,152 +154,193 @@ document.addEventListener('DOMContentLoaded', () => {
         if(wifiScanInterval) clearInterval(wifiScanInterval);
     }
 
-    if(autoScanToggle) {
-        autoScanToggle.addEventListener('change', (e) => {
-            if(e.target.checked) startAutoScan();
-            else window.stopAutoScan();
-        });
-    }
-
     if(btnRefreshWifi) {
         btnRefreshWifi.addEventListener('click', () => {
-            if(!isWifiPowerOn) return;
+            if(!isWifiPowerOn || isScannerBusy) return;
             btnRefreshWifi.style.opacity = '0.5';
-            loadWiFiNetworks().then(() => btnRefreshWifi.style.opacity = '1');
+            // Când apasă refresh, cerem API-ului o scanare hardware reală (?rescan=true)
+            loadWiFiNetworks(true).then(() => btnRefreshWifi.style.opacity = '1');
+            startAutoScan(); 
         });
     }
 
-    if(btnRefreshBt) {
-        btnRefreshBt.addEventListener('click', () => {
-            if(!isBtPowerOn) return;
-            btnRefreshBt.style.opacity = '0.5';
-            loadBluetoothDevices().then(() => btnRefreshBt.style.opacity = '1');
-        });
-    }
-
+    // Funcție apelată din global.js la deschiderea modalelor
     window.triggerNetworkModalScan = function(modalId) {
         if(modalId === 'wifi-modal' && isWifiPowerOn) {
-            loadWiFiNetworks();
+            loadWiFiNetworks(false);
             startAutoScan();
         } else if(modalId === 'bt-modal' && isBtPowerOn) {
             loadBluetoothDevices();
         }
     }
 
-    async function loadWiFiNetworks() {
+
+    // --- LOAD WIFI NETWORKS ---
+    async function loadWiFiNetworks(forceRescan = false) {
         if(!isWifiPowerOn) return;
         const listContainer = document.getElementById('wifi-list');
         if(!listContainer) return;
 
-        if (!listContainer.innerHTML.includes('list-item')) listContainer.innerHTML = loadingSVG;
+        if (!listContainer.innerHTML.includes('list-item') && !forceRescan) {
+            listContainer.innerHTML = loadingSVG;
+        }
         
         try {
-            const response = await fetch(`${API_URL}/system/wifi/scan`);
+            // Folosim query parametrul `rescan` descris în documentație
+            const response = await fetch(`${API_URL}/system/wifi/scan?rescan=${forceRescan}`);
             let networks = [];
             
-            if (!response.ok) {
-                networks = [
-                    { ssid: "Scancore_Test_Net", signal: 95, security: "WPA2" },
-                    { ssid: "Home_WiFi", signal: 70, security: "WPA2" },
-                    { ssid: "Guest_Open", signal: 45, security: "open" }
-                ];
-            } else {
+            if (response.ok) {
                 networks = await response.json();
-            }
-
-            listContainer.innerHTML = ''; 
-            if(networks.length === 0) {
-                listContainer.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-muted);">No networks found.</div>';
-                showNetworkIcon('none');
+            } else if (response.status === 409) {
+                console.warn("Scan blocked: System busy (409).");
                 return;
             }
 
-            let anyConnected = false;
+            if(networks.length === 0) {
+                listContainer.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-muted);">No networks found.</div>';
+                return;
+            }
+
+            // Structura din documentatie are "saved" si "in_use" sau putem folosi currentConnectedSSID
+            networks.sort((a, b) => {
+                const isAConnected = a.ssid === currentConnectedSSID || (a.in_use && a.in_use.trim() !== "");
+                const isBConnected = b.ssid === currentConnectedSSID || (b.in_use && b.in_use.trim() !== "");
+                
+                if (isAConnected && !isBConnected) return -1;
+                if (!isAConnected && isBConnected) return 1;
+                return 0; 
+            });
+
+            listContainer.innerHTML = ''; 
 
             networks.forEach((net) => {
-                const isSecure = net.security && net.security !== "open"; 
-                const isConnected = (net.ssid === currentConnectedSSID) || (net.connected === true); 
-                if (isConnected) anyConnected = true;
-
+                const isConnected = net.ssid === currentConnectedSSID || (net.in_use && net.in_use.trim() !== "");
+                const isSecure = net.security && net.security.trim() !== "" && net.security.trim() !== "open" && net.security.trim() !== "--"; 
+                
                 let signalIcon = '';
-                if(net.signal > 75) signalIcon = `<path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line>`;
-                else if(net.signal > 40) signalIcon = `<path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line>`;
-                else signalIcon = `<line x1="12" y1="20" x2="12.01" y2="20" stroke-width="3"></line>`;
+                if(net.signal >= 75) {
+                    signalIcon = `<path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line>`;
+                } else if(net.signal >= 50) {
+                    signalIcon = `<path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line>`;
+                } else if(net.signal >= 25) {
+                    signalIcon = `<path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line>`;
+                } else {
+                    signalIcon = `<line x1="12" y1="20" x2="12.01" y2="20" stroke-width="3"></line>`;
+                }
 
-                const securityIcon = isSecure ? `<svg viewBox="0 0 24 24" style="width:16px;height:16px; margin-left:8px;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>` : '';
+                const securityIcon = isSecure ? `<svg viewBox="0 0 24 24" style="width:16px;height:16px; color:var(--text-muted);"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>` : '';
                 
                 const item = document.createElement('div');
                 item.className = `list-item ${isConnected ? 'active' : ''}`;
                 if (isConnected) item.style.borderColor = 'var(--accent)';
 
+                const btnText = isConnected ? 'Disconnect' : (net.saved ? 'Connect (Saved)' : 'Connect');
+                const btnClass = isConnected ? 'btn-secondary' : 'btn-primary';
+
                 item.innerHTML = `
-                    <div style="display:flex; align-items:center;">
-                        <svg viewBox="0 0 24 24" style="width:20px;height:20px; margin-right:12px; color:var(--text-main);">${signalIcon}</svg>
+                    <div style="display:flex; align-items:center; flex: 1;">
+                        <svg viewBox="0 0 24 24" style="width:20px;height:20px; margin-right:12px; color:var(--text-main); fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round;">${signalIcon}</svg>
                         <div class="list-info">
                             <span style="${isConnected ? 'color: var(--accent);' : ''}">${net.ssid}</span>
                             <small>Signal: ${net.signal}% | ${isSecure ? 'Secure' : 'Open'}</small>
                         </div>
                     </div>
-                    ${isConnected ? '<svg class="connected-icon" viewBox="0 0 24 24" style="color:var(--accent);"><polyline points="20 6 9 17 4 12"></polyline></svg>' : securityIcon}
+                    <div style="display:flex; align-items:center; gap: 12px;">
+                        ${securityIcon}
+                        <button class="${btnClass} action-btn" style="padding: 6px 14px; font-size: 0.8rem; min-height: 28px; width: auto; min-width: 90px; text-align: center;">${btnText}</button>
+                    </div>
                 `;
-                item.addEventListener('click', () => connectToWiFi(item, net.ssid, isSecure));
+                
+                const actionBtn = item.querySelector('.action-btn');
+                actionBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (isScannerBusy) { alert("Action blocked during scan (409)."); return; }
+                    toggleWiFiConnection(item, net.ssid, isSecure, isConnected, net.saved, actionBtn);
+                });
+
                 listContainer.appendChild(item);
             });
             
-            // Dacă descoperim că suntem deja conectați la o rețea, schimbăm în iconița de Wi-Fi
-            if (anyConnected) showNetworkIcon('wifi');
-
         } catch (error) {
             listContainer.innerHTML = `<div style="color:#EF4444; text-align:center; padding:20px;">API connection error.</div>`;
         }
     }
 
-    async function connectToWiFi(element, ssid, isSecure) {
+
+    // --- CONNECT / DISCONNECT WIFI ---
+    async function toggleWiFiConnection(element, ssid, isSecure, isConnected, isSaved, btnElement) {
         if(!isWifiPowerOn) return;
-        let password = '';
-        if (isSecure) {
+        const smallText = element.querySelector('small');
+
+        // DECONECTARE
+        if (isConnected) {
+            btnElement.innerText = '...';
+            try {
+                // Nu văd /disconnect expus în doc, dar presupunem că funcționează din inerție. 
+                // Dacă nu există, se ignoră sau se folosește un Forget (DELETE /system/wifi/saved)
+                await fetch(`${API_URL}/system/wifi/disconnect`, { method: 'POST' }).catch(()=>{});
+            } catch(e) {}
+            
+            currentConnectedSSID = null;
+            checkGlobalNetworkState(); 
+            loadWiFiNetworks(false); 
+            return;
+        }
+
+        // CONECTARE
+        let password = "";
+        
+        // Dacă NU e salvată și E securizată, cerem parolă (401 o va cere oricum, dar o cerem proactiv)
+        if (!isSaved && isSecure) {
             password = prompt(`Enter password for ${ssid}:`); 
             if (password === null) return; 
         }
 
-        const parent = element.parentElement;
-        parent.querySelectorAll('.list-item').forEach(el => {
-            el.classList.remove('active');
-            el.style.borderColor = '';
-            const span = el.querySelector('span');
-            if(span) span.style.color = '';
-            const checkIcon = el.querySelector('.connected-icon');
-            if(checkIcon) checkIcon.remove();
-        });
-
-        const smallText = element.querySelector('small');
-        smallText.innerText = 'Connecting...';
-        element.classList.add('active');
-        element.style.borderColor = 'var(--accent)';
+        btnElement.innerText = 'Working...';
+        smallText.innerText = 'Authenticating...';
+        btnElement.disabled = true;
 
         try {
             const response = await fetch(`${API_URL}/system/wifi/connect`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ssid: ssid, password: password })
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify({ ssid: ssid, password: password, identity: null })
             });
             
             if(response.ok) {
-                smallText.innerText = 'Connected';
-                element.querySelector('span').style.color = 'var(--accent)';
-                element.innerHTML += '<svg class="connected-icon" viewBox="0 0 24 24" style="color:var(--accent);"><polyline points="20 6 9 17 4 12"></polyline></svg>';
                 currentConnectedSSID = ssid;
+                checkGlobalNetworkState(); 
+                loadWiFiNetworks(false); 
+            } else if (response.status === 401) {
+                // Dacă ne-a dat 401, rețeaua salvată are parola greșită SAU trebuie parolă. O cerem din nou.
+                smallText.innerText = 'Wrong password.';
+                btnElement.innerText = 'Retry';
+                btnElement.disabled = false;
                 
-                // SCHIMBĂM GLOBUL ÎN WI-FI DUPĂ CONECTAREA REUȘITĂ
-                showNetworkIcon('wifi');
+                // Opțional, redeschidem promptul automat
+                let retryPwd = prompt(`Incorrect password. Enter new password for ${ssid}:`);
+                if (retryPwd !== null) {
+                    toggleWiFiConnection(element, ssid, true, false, false, btnElement);
+                }
+
             } else {
-                smallText.innerText = 'Connection Failed';
-                element.classList.remove('active'); element.style.borderColor = '';
+                const errData = await response.json().catch(() => ({}));
+                smallText.innerText = errData.detail || 'Connection Failed';
+                smallText.style.color = '#EF4444';
+                btnElement.innerText = 'Connect';
+                btnElement.disabled = false;
             }
         } catch (e) {
-            smallText.innerText = 'Error interacting with OS API';
-            element.classList.remove('active'); element.style.borderColor = '';
+            smallText.innerText = 'API Offline';
+            smallText.style.color = '#EF4444';
+            btnElement.innerText = 'Connect';
+            btnElement.disabled = false;
         }
     }
 
+    // --- BLUETOOTH LIST & CONNECT ---
+    // (Implementat utilizând aceleași principii din documentație, durata 8s)
     async function loadBluetoothDevices() {
         if(!isBtPowerOn) return;
         const listContainer = document.getElementById('bt-list');
@@ -256,47 +349,64 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!listContainer.innerHTML.includes('list-item')) listContainer.innerHTML = loadingSVG;
         
         try {
-            const response = await fetch(`${API_URL}/system/bluetooth/scan`);
+            const response = await fetch(`${API_URL}/system/bluetooth/scan?duration=8`);
             let devices = [];
 
-            if (!response.ok) {
-                devices = [
-                    { name: "My Phone", mac_address: "AA:BB:CC:DD:EE:11", status: "Found" },
-                    { name: "Scancore Remote", mac_address: "11:22:33:44:55:66", status: "Paired" }
-                ];
-            } else {
+            if (response.ok) {
                 devices = await response.json();
+            } else if (response.status === 409) {
+                console.warn("BT Scan blocked: System busy.");
+                return;
             }
 
-            listContainer.innerHTML = '';
             if(devices.length === 0) {
                 listContainer.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-muted);">No devices found.</div>';
                 return;
             }
             
+            listContainer.innerHTML = '';
+            
             devices.forEach(dev => {
+                const isConnected = dev.connected === true;
+
                 const item = document.createElement('div');
-                item.className = 'list-item';
-                if(dev.status === "Paired") item.classList.add('active');
+                item.className = `list-item ${isConnected ? 'active' : ''}`;
+                if (isConnected) item.style.borderColor = 'var(--accent)';
                 
-                const connectedIcon = dev.status === "Paired" ? '<svg viewBox="0 0 24 24" style="color:var(--accent);"><polyline points="20 6 9 17 4 12"></polyline></svg>' : '';
+                const btnText = isConnected ? 'Disconnect' : 'Connect';
+                const btnClass = isConnected ? 'btn-secondary' : 'btn-primary';
 
                 item.innerHTML = `
-                    <div class="list-info">
-                        <span>${dev.name || dev.mac_address}</span>
-                        <small>${dev.status || 'Found'} | ${dev.mac_address}</small>
+                    <div class="list-info" style="flex: 1;">
+                        <span style="${isConnected ? 'color: var(--accent);' : ''}">${dev.name || dev.mac_address}</span>
+                        <small>${isConnected ? 'Connected' : (dev.paired ? 'Paired' : 'Found')} | Signal: ${dev.rssi || '-'} dBm</small>
                     </div>
-                    ${connectedIcon}
+                    <button class="${btnClass} action-btn" style="padding: 6px 14px; font-size: 0.8rem; min-height: 28px; width: 90px; text-align: center;">${btnText}</button>
                 `;
                 
-                item.addEventListener('click', async () => {
+                const actionBtn = item.querySelector('.action-btn');
+                actionBtn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    if (isScannerBusy) { alert("Action blocked during scan (409)."); return; }
+                    
+                    if (isConnected) {
+                        actionBtn.innerText = '...';
+                        try { await fetch(`${API_URL}/system/bluetooth/disconnect`, { method: 'POST' }).catch(()=>{}); } catch(err){}
+                        loadBluetoothDevices(); 
+                        return;
+                    }
+
+                    actionBtn.innerText = 'Pairing...';
+                    item.querySelector('small').innerText = "Connecting...";
                     try {
-                        item.querySelector('small').innerText = "Pairing...";
                         const res = await fetch(`${API_URL}/system/bluetooth/connect`, {
                             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mac_address: dev.mac_address })
                         });
-                        setTimeout(() => { item.querySelector('small').innerText = "Paired"; }, 1000);
-                    } catch(e) {}
+                        loadBluetoothDevices(); 
+                    } catch(err) {
+                        item.querySelector('small').innerText = "Failed";
+                        loadBluetoothDevices();
+                    }
                 });
 
                 listContainer.appendChild(item);
@@ -305,4 +415,5 @@ document.addEventListener('DOMContentLoaded', () => {
             listContainer.innerHTML = `<div style="color:#EF4444; text-align:center; padding:20px;">API connection error.</div>`;
         }
     }
+
 });
