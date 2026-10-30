@@ -1,3 +1,14 @@
+// Every API error is {"detail": "<message>"}; a 422 has "detail" as a list of field errors.
+window.apiError = async function (response) {
+    let body = null;
+    try { body = await response.json(); } catch (e) { return `HTTP ${response.status}`; }
+    const detail = body && body.detail;
+    if (Array.isArray(detail)) {
+        return detail.map(d => `${(d.loc || []).filter(p => p !== 'body').join('.')}: ${d.msg}`).join('\n');
+    }
+    return typeof detail === 'string' ? detail : `HTTP ${response.status}`;
+};
+
 document.addEventListener('DOMContentLoaded', () => {
 
     // --- 1. SYSTEM CLOCK ---

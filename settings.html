@@ -85,6 +85,9 @@
                         <div class="sidebar-tab" data-tab-target="tab-lights">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="4.22" x2="19.78" y2="5.64"></line></svg> Lights Control
                         </div>
+                        <div class="sidebar-tab" data-tab-target="tab-hwtest">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg> Hardware Tests
+                        </div>
                         <div class="sidebar-tab" data-tab-target="tab-power" style="color: #EF4444;">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line></svg> System Power
                         </div>
@@ -101,32 +104,15 @@
                             <div class="setting-row-box" style="flex-direction: column; align-items: flex-start; gap: 12px; padding: 20px;">
                                 <label style="font-weight: 600;">Endpoint / Method</label>
                                 <div style="display: flex; gap: 12px; width: 100%;">
-                                    <select id="api-tester-endpoint" style="flex: 1; padding: 10px; background: var(--bg-primary); color: var(--text-main); border: 1px solid var(--neutral-border); border-radius: 6px;">
-                                        <option value="POST|/scanner/prepare">POST /scanner/prepare</option>
-                                        <option value="GET|/scanner/status">GET /scanner/status</option>
-                                        <option value="POST|/scanner/scan">POST /scanner/scan</option>
-                                        <option value="POST|/scanner/cancel">POST /scanner/cancel</option>
-                                    </select>
+                                    <select id="api-tester-endpoint" style="flex: 1; padding: 10px; background: var(--bg-primary); color: var(--text-main); border: 1px solid var(--neutral-border); border-radius: 6px;"></select>
                                     <button class="btn-primary" id="btn-api-test-send" style="min-height: 40px; font-size: 0.95rem; padding: 0 16px;">Try it out</button>
                                 </div>
                                 
+                                <label style="font-weight: 600;">Route (edit <code>{id}</code>, <code>{name}</code>, query strings...)</label>
+                                <input type="text" id="api-tester-route" style="width: 100%; padding: 10px; background: var(--bg-primary); color: var(--text-main); border: 1px solid var(--neutral-border); border-radius: 6px; font-family: var(--font-mono);">
+
                                 <label style="font-weight: 600; margin-top: 12px;">Request JSON Body</label>
-                                <textarea id="api-tester-json" class="scrollable-panel" style="width: 100%; height: 180px; background: #000; color: #10B981; font-family: var(--font-mono); padding: 12px; border: 1px solid var(--neutral-border); border-radius: 6px; resize: none;">{
-  "basic": {
-    "z_axis_height": 100,
-    "turntable_angle": 18,
-    "photo_resolution": "1920x1080",
-    "preview_resolution": "960x720",
-    "photo_quality": 90
-  },
-  "advanced": {
-    "stream_quality": 80,
-    "motor_acceleration": 10,
-    "motor_deceleration": 10,
-    "camera_brightness": 50,
-    "led_intensity": 0.5
-  }
-}</textarea>
+                                <textarea id="api-tester-json" class="scrollable-panel" style="width: 100%; height: 180px; background: #000; color: #10B981; font-family: var(--font-mono); padding: 12px; border: 1px solid var(--neutral-border); border-radius: 6px; resize: none;"></textarea>
                                 
                                 <label style="font-weight: 600; margin-top: 12px;">Response</label>
                                 <div id="api-tester-status" style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-muted);">Status: waiting...</div>
@@ -159,7 +145,21 @@
                                 </div>
                             </div>
                         </div>
-<!-- TAB 3: SYSTEM POWER -->
+<!-- TAB: HARDWARE TESTS (/test/*) -->
+                        <div class="settings-pane" id="tab-hwtest">
+                            <h2 style="font-size: 1.4rem; margin-bottom: 8px;">Hardware Tests</h2>
+                            <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 0.9rem;">Every <code>/test</code> endpoint. Motion commands answer 409 while a scan is running and 503 without the Arduino.</p>
+
+                            <div id="hwtest-result" style="position: sticky; top: 0; z-index: 5; background: var(--bg-primary); padding-bottom: 12px;">
+                                <div id="hwtest-status" style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-muted); margin-bottom: 6px;">Status: waiting...</div>
+                                <pre id="hwtest-response" class="scrollable-panel" style="width: 100%; height: 110px; overflow-y: auto; margin: 0; background: var(--bg-tertiary); color: var(--text-main); font-family: var(--font-mono); padding: 12px; border: 1px solid var(--neutral-border); border-radius: 6px;">Response will appear here.</pre>
+                                <img id="hwtest-preview" alt="Camera preview" style="display: none; width: 100%; max-width: 480px; margin-top: 10px; border-radius: 6px; background: #000;">
+                            </div>
+
+                            <div id="hwtest-cards" style="display: flex; flex-direction: column; gap: 12px;"></div>
+                        </div>
+
+                        <!-- TAB 3: SYSTEM POWER -->
                         <div class="settings-pane" id="tab-power">
                             <h2 style="font-size: 1.4rem; margin-bottom: 8px;">System Power</h2>
                             <p style="color: var(--text-muted); margin-bottom: 24px; font-size: 0.9rem;">Safely reboot the Raspberry Pi.</p>
@@ -247,6 +247,7 @@
 
     <!-- SCRIPTURI CORE APLICAȚIE (Incluse O SINGURĂ DATĂ!) -->
     <script src="js/global.js"></script>
+    <script src="js/scan-monitor.js"></script>
     <script src="js/network.js"></script>
     <script src="js/ai-chat.js"></script>
     

@@ -68,13 +68,24 @@
                         <button class="btn-primary" id="btn-start-face-prep" style="margin-bottom: 12px; width: 100%; height: 50px; font-size: 1.1rem; justify-content: center;">▶ Prepare Face Scan</button>
                         <button class="btn-secondary" id="btn-reset-face-defaults" style="margin-bottom: 24px; width: 100%; justify-content: center; min-height: 40px; font-size: 0.9rem; color: var(--text-muted);">↺ Reset to Defaults</button>
 
+<div class="settings-grid" style="margin-bottom: 16px;">
+                            <div class="setting-row-box" style="padding: 16px; flex-direction: column; align-items: flex-start; gap: 8px;">
+                                <label class="setting-row-title">Name (optional)</label>
+                                <input type="text" id="cfg-face-title" maxlength="120" placeholder="e.g. Ancient Vase" style="width: 100%; box-sizing: border-box; height: 40px; padding: 0 12px; border-radius: 6px; background: var(--bg-primary); color: var(--text-main); border: 1px solid var(--neutral-border);">
+                            </div>
+                            <div class="setting-row-box" style="padding: 16px; flex-direction: column; align-items: flex-start; gap: 8px;">
+                                <label class="setting-row-title">Description (optional)</label>
+                                <textarea id="cfg-face-desc" maxlength="2000" rows="2" placeholder="Add details..." style="width: 100%; box-sizing: border-box; padding: 8px 12px; border-radius: 6px; resize: none; background: var(--bg-primary); color: var(--text-main); border: 1px solid var(--neutral-border); font-family: inherit;"></textarea>
+                            </div>
+                        </div>
+
                         <div class="settings-grid" style="margin-bottom: 24px;">
                             <div class="setting-row-box" style="padding: 16px; flex-direction: column; align-items: flex-start; gap: 12px;">
                                 <div style="display:flex; justify-content: space-between; align-items: center; width: 100%; gap: 16px;">
                                     <label class="setting-row-title" style="margin:0;">Start Z Height (mm)</label>
-                                    <span id="cfg-face-start-z-val" style="font-family: var(--font-mono); font-weight: 600; color: var(--accent);">150</span>
+                                    <span id="cfg-face-start-z-val" style="font-family: var(--font-mono); font-weight: 600; color: var(--accent);">144</span>
                                 </div>
-                                <input type="range" id="cfg-face-start-z" min="100" max="350" value="150" style="width: 100%;">
+                                <input type="range" id="cfg-face-start-z" min="104" max="200" step="8" value="144" style="width: 100%;">
                             </div>
 
                             <div class="setting-row-box" style="padding: 16px; flex-direction: column; align-items: flex-start; gap: 12px;">
@@ -116,7 +127,7 @@
                                         <label class="setting-row-title" style="margin:0;">Search Range (mm)</label>
                                         <span id="cfg-face-search-range-val" style="font-family: var(--font-mono); font-weight: 600; color: var(--accent);">48</span>
                                     </div>
-                                    <input type="range" id="cfg-face-search-range" min="10" max="250" value="48" style="width: 100%;">
+                                    <input type="range" id="cfg-face-search-range" min="16" max="144" step="8" value="48" style="width: 100%;">
                                 </div>
 
                                 <div class="setting-row-box" style="padding: 16px; flex-direction: column; align-items: flex-start; gap: 12px;">
@@ -127,12 +138,20 @@
                                     <input type="range" id="cfg-face-step" min="8" max="24" step="8" value="8" style="width: 100%;">
                                 </div>
 
+                                <div class="setting-row-box" style="padding: 16px; flex-direction: column; align-items: flex-start; gap: 12px;">
+                                    <div style="display:flex; justify-content: space-between; align-items: center; width: 100%; gap: 16px;">
+                                        <label class="setting-row-title" style="margin:0;">Z-Axis Delay (s)</label>
+                                        <span id="cfg-face-delay-z-val" style="font-family: var(--font-mono); font-weight: 600; color: var(--accent);">0.0010</span>
+                                    </div>
+                                    <input type="range" id="cfg-face-delay-z" min="0.001" max="0.003" step="0.0002" value="0.001" style="width: 100%;">
+                                </div>
+
                                 <div class="setting-row-box" id="box-face-manual-z" style="padding: 16px; flex-direction: column; align-items: flex-start; gap: 12px; opacity: 0.5; pointer-events: none;">
                                     <div style="display:flex; justify-content: space-between; align-items: center; width: 100%; gap: 16px;">
                                         <label class="setting-row-title" style="margin:0;">Manual Z (mm)</label>
                                         <span id="cfg-face-manual-z-val" style="font-family: var(--font-mono); font-weight: 600; color: var(--accent);">200</span>
                                     </div>
-                                    <input type="range" id="cfg-face-manual-z" min="200" max="350" value="200" style="width: 100%;">
+                                    <input type="range" id="cfg-face-manual-z" min="152" max="248" step="8" value="200" style="width: 100%;">
                                 </div>
                             </div>
                         </div>
@@ -162,6 +181,7 @@
     <script src="https://cdn.jsdelivr.net/npm/simple-keyboard-autocorrect@latest/build/index.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/swipe-keyboard@latest/build/index.min.js"></script>
     <script src="js/global.js"></script>
+    <script src="js/scan-monitor.js"></script>
     <script src="js/network.js"></script>
     <script src="js/ai-chat.js"></script>
     <script src="js/scanner.js"></script>

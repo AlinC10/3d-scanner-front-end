@@ -41,8 +41,26 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // GET /api/ai/status: chat only when "on"; "loading" = starting; otherwise show "reason"
+    let aiStatusTimer = null;
+    async function checkAiStatus() {
+        if(!aiInput || !aiSendBtn) return;
+        try {
+            const st = await (await fetch(`${API_URL}/api/ai/status`)).json();
+            const usable = st.on === true;
+            aiInput.disabled = !usable;
+            aiSendBtn.disabled = !usable;
+            aiInput.placeholder = usable ? 'Ask ScanAssist...' : (st.loading ? 'Assistant is starting...' : (st.reason || 'Assistant is off'));
+            clearTimeout(aiStatusTimer);
+            if (st.loading) aiStatusTimer = setTimeout(checkAiStatus, 3000);
+        } catch(e) {
+            aiInput.placeholder = 'Assistant unavailable';
+        }
+    }
+    checkAiStatus();
+
     async function sendAiMessage() {
-        if(!aiInput) return;
+        if(!aiInput || aiInput.disabled) return;
         const text = aiInput.value.trim();
         if (!text) return;
 
@@ -54,6 +72,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch(`${API_URL}/api/ai/chat`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: text, history: aiConversationHistory })
             });
+            if (!response.ok) {
+                document.getElementById(loadingId).remove();
+                appendChatMessage('error', await window.apiError(response));
+                checkAiStatus();
+                return;
+            }
             const data = await response.json();
             
             document.getElementById(loadingId).remove();

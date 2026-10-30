@@ -11,12 +11,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Nouă variabilă de stare pentru a bloca acțiunile pe rețea în timpul scanării 3D (Eroarea 409 din doc)
     let isScannerBusy = false;
+    let lastSys = null; // last GET /system/status answer (reading is allowed during a scan)
 
     const btnRefreshWifi = document.getElementById('btn-refresh-wifi');
     const btnRefreshBt = document.getElementById('btn-refresh-bt');
     const toggleWifiPower = document.getElementById('toggle-wifi-power');
     const toggleBtPower = document.getElementById('toggle-bt-power');
     
+    // SSIDs and device names are untrusted text (SYS-1): never put them in innerHTML raw
+    const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
     const loadingSVG = `<svg viewBox="0 0 24 24" class="spinner" style="width: 32px; height: 32px;"><circle cx="12" cy="12" r="10" stroke-width="3" stroke-dasharray="31.4 31.4" fill="none" stroke-linecap="round"></circle></svg>`;
 
     // --- FUNCȚII UI DE BAZĂ ---
@@ -40,11 +44,35 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
     }
 
+    // The server answers 409 to network changes while a scan runs: show what is connected instead
+    function renderLockedState(containerId, kind) {
+        const el = document.getElementById(containerId);
+        if (!el) return;
+        const eth = lastSys && lastSys.ethernet;
+        const lines = [`Ethernet cable: ${eth && eth.connected ? 'connected' : 'not connected'}`];
+        if (kind === 'wifi') {
+            const w = lastSys && lastSys.wifi;
+            lines.push(w && w.connected ? `Wi-Fi: ${esc(w.ssid)} (signal ${w.signal}%)` : 'Wi-Fi: not connected');
+        } else {
+            const devs = (lastSys && lastSys.bluetooth && lastSys.bluetooth.devices) || [];
+            lines.push(devs.length ? `Bluetooth: ${devs.map(d => esc(d.name || d.mac_address)).join(', ')}` : 'Bluetooth: no device connected');
+        }
+        el.innerHTML = `
+            <div style="padding: 24px 10px;">
+                <h2 style="margin-bottom: 12px; font-size: 1.2rem;">Locked during a scan</h2>
+                <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.5; margin-bottom: 14px;">
+                    The scanner does not allow network changes while it scans. If the Wi-Fi drops now the upload stops, so use the Ethernet cable for long scans.
+                </p>
+                <div style="font-size: 0.9rem; line-height: 1.8;">${lines.join('<br>')}</div>
+            </div>`;
+    }
+
     // --- NOU: VERIFICARE STATUS GLOBAL (Sursa unică de adevăr) ---
     // Conform "GET /system/status NEW" - Polled every 5-15s
     async function checkGlobalNetworkState() {
         let isEthernetActive = false;
         let isWifiActive = false;
+        let gotStatus = false;
 
         try {
             // Mai întâi verificăm starea scanerului pentru a ști dacă blocăm butoanele de rețea
@@ -60,6 +88,8 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (sysRes && sysRes.ok) {
                 const sysData = await sysRes.json();
+                lastSys = sysData;
+                gotStatus = true;
 
                 // 1. Verificare ETHERNET din structura nouă
                 if (sysData.ethernet) {
@@ -95,6 +125,13 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch(e) {
             console.warn("Nu mă pot conecta la API-ul Python.");
+        }
+
+        // Other scripts (scan widget, scanning page) warn when the connection drops during a scan
+        if (gotStatus) {
+            window.dispatchEvent(new CustomEvent('network-state', {
+                detail: { ethernet: isEthernetActive, wifi: isWifiActive, ssid: currentConnectedSSID, scanning: isScannerBusy }
+            }));
         }
 
         // --- APLICARE INTERFAȚĂ ICONIȚE ---
@@ -134,12 +171,34 @@ document.addEventListener('DOMContentLoaded', () => {
                 checkGlobalNetworkState(); 
             }
             try { 
-                await fetch(`${API_URL}/system/wifi/power`, {
-                    method: 'POST', 
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ "state": isWifiPowerOn ? "on" : "off" })
-                }); 
+                await fetch(`${API_URL}/system/wifi/power/${isWifiPowerOn ? 'on' : 'off'}`, { method: 'POST' }); 
             } catch(e){}
+        });
+    }
+
+    if(toggleBtPower) {
+        toggleBtPower.addEventListener('click', async function() {
+            if (isScannerBusy) { alert("Network actions are disabled during an active scan."); return; }
+
+            isBtPowerOn = !isBtPowerOn;
+            this.classList.toggle('active', isBtPowerOn);
+            try {
+                const res = await fetch(`${API_URL}/system/bluetooth/power/${isBtPowerOn ? 'on' : 'off'}`, { method: 'POST' });
+                if (!res.ok) throw new Error(await window.apiError(res));
+            } catch(e) {
+                isBtPowerOn = !isBtPowerOn;
+                this.classList.toggle('active', isBtPowerOn);
+                alert(`Bluetooth: ${e.message}`);
+            }
+            if (isBtPowerOn) loadBluetoothDevices();
+            else renderDisabledState('bt-list', 'Bluetooth Disabled', 'Turn on Bluetooth to connect to nearby devices.');
+        });
+    }
+
+    if(btnRefreshBt) {
+        btnRefreshBt.addEventListener('click', () => {
+            if(!isBtPowerOn || isScannerBusy) return;
+            loadBluetoothDevices();
         });
     }
 
@@ -165,7 +224,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Funcție apelată din global.js la deschiderea modalelor
-    window.triggerNetworkModalScan = function(modalId) {
+    window.triggerNetworkModalScan = async function(modalId) {
+        await checkGlobalNetworkState(); // refreshes isScannerBusy before deciding what to show
         if(modalId === 'wifi-modal' && isWifiPowerOn) {
             loadWiFiNetworks(false);
             startAutoScan();
@@ -175,11 +235,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
+    // DELETE /system/wifi/saved/{name}: the saved connection name can differ from the SSID
+    async function forgetNetwork(ssid) {
+        const saved = await (await fetch(`${API_URL}/system/wifi/saved`)).json();
+        const entry = saved.find(n => n.ssid === ssid);
+        if (!entry) return;
+        const res = await fetch(`${API_URL}/system/wifi/saved/${encodeURIComponent(entry.name)}`, { method: 'DELETE' });
+        if (!res.ok && res.status !== 204) alert(await window.apiError(res));
+    }
+
     // --- LOAD WIFI NETWORKS ---
     async function loadWiFiNetworks(forceRescan = false) {
         if(!isWifiPowerOn) return;
         const listContainer = document.getElementById('wifi-list');
         if(!listContainer) return;
+        if (isScannerBusy) return renderLockedState('wifi-list', 'wifi');
 
         if (!listContainer.innerHTML.includes('list-item') && !forceRescan) {
             listContainer.innerHTML = loadingSVG;
@@ -235,19 +305,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 item.className = `list-item ${isConnected ? 'active' : ''}`;
                 if (isConnected) item.style.borderColor = 'var(--accent)';
 
-                const btnText = isConnected ? 'Disconnect' : (net.saved ? 'Connect (Saved)' : 'Connect');
+                const btnText = isConnected ? 'Forget' : (net.saved ? 'Connect (Saved)' : 'Connect');
                 const btnClass = isConnected ? 'btn-secondary' : 'btn-primary';
 
                 item.innerHTML = `
                     <div style="display:flex; align-items:center; flex: 1;">
                         <svg viewBox="0 0 24 24" style="width:20px;height:20px; margin-right:12px; color:var(--text-main); fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round;">${signalIcon}</svg>
                         <div class="list-info">
-                            <span style="${isConnected ? 'color: var(--accent);' : ''}">${net.ssid}</span>
+                            <span style="${isConnected ? 'color: var(--accent);' : ''}">${esc(net.ssid)}</span>
                             <small>Signal: ${net.signal}% | ${isSecure ? 'Secure' : 'Open'}</small>
                         </div>
                     </div>
                     <div style="display:flex; align-items:center; gap: 12px;">
                         ${securityIcon}
+                        ${net.saved && !isConnected ? '<button class="btn-secondary forget-btn" style="padding: 6px 10px; font-size: 0.8rem; min-height: 28px; width: auto;">Forget</button>' : ''}
                         <button class="${btnClass} action-btn" style="padding: 6px 14px; font-size: 0.8rem; min-height: 28px; width: auto; min-width: 90px; text-align: center;">${btnText}</button>
                     </div>
                 `;
@@ -256,7 +327,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 actionBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     if (isScannerBusy) { alert("Action blocked during scan (409)."); return; }
-                    toggleWiFiConnection(item, net.ssid, isSecure, isConnected, net.saved, actionBtn);
+                    toggleWiFiConnection(item, net.ssid, isSecure, isConnected, net.saved, actionBtn, null, net.security || '');
+                });
+                const forgetBtn = item.querySelector('.forget-btn');
+                if (forgetBtn) forgetBtn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    if (isScannerBusy) { alert("Action blocked during scan (409)."); return; }
+                    forgetBtn.innerText = '...';
+                    try { await forgetNetwork(net.ssid); } catch(err) {}
+                    loadWiFiNetworks(false);
                 });
 
                 listContainer.appendChild(item);
@@ -269,18 +348,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // --- CONNECT / DISCONNECT WIFI ---
-    async function toggleWiFiConnection(element, ssid, isSecure, isConnected, isSaved, btnElement) {
+    async function toggleWiFiConnection(element, ssid, isSecure, isConnected, isSaved, btnElement, knownPassword = null, security = '') {
         if(!isWifiPowerOn) return;
         const smallText = element.querySelector('small');
 
-        // DECONECTARE
+        // "FORGET": API-ul nu are disconnect, doar DELETE /system/wifi/saved/{name}
         if (isConnected) {
             btnElement.innerText = '...';
-            try {
-                // Nu văd /disconnect expus în doc, dar presupunem că funcționează din inerție. 
-                // Dacă nu există, se ignoră sau se folosește un Forget (DELETE /system/wifi/saved)
-                await fetch(`${API_URL}/system/wifi/disconnect`, { method: 'POST' }).catch(()=>{});
-            } catch(e) {}
+            try { await forgetNetwork(ssid); } catch(e) {}
             
             currentConnectedSSID = null;
             checkGlobalNetworkState(); 
@@ -289,12 +364,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // CONECTARE
-        let password = "";
+        let password = knownPassword ?? "";
         
         // Dacă NU e salvată și E securizată, cerem parolă (401 o va cere oricum, dar o cerem proactiv)
-        if (!isSaved && isSecure) {
+        if (knownPassword === null && !isSaved && isSecure) {
             password = prompt(`Enter password for ${ssid}:`); 
             if (password === null) return; 
+        }
+
+        // 802.1X (enterprise) networks also need a user name
+        let identity = null;
+        if (!isSaved && /802\.1X|EAP/i.test(security)) {
+            identity = prompt(`Enter the user name for ${ssid}:`);
+            if (identity === null) return;
         }
 
         btnElement.innerText = 'Working...';
@@ -305,7 +387,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch(`${API_URL}/system/wifi/connect`, {
                 method: 'POST', 
                 headers: { 'Content-Type': 'application/json' }, 
-                body: JSON.stringify({ ssid: ssid, password: password, identity: null })
+                body: JSON.stringify({ ssid: ssid, password: password, identity: identity })
             });
             
             if(response.ok) {
@@ -321,12 +403,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Opțional, redeschidem promptul automat
                 let retryPwd = prompt(`Incorrect password. Enter new password for ${ssid}:`);
                 if (retryPwd !== null) {
-                    toggleWiFiConnection(element, ssid, true, false, false, btnElement);
+                    toggleWiFiConnection(element, ssid, true, false, false, btnElement, retryPwd, security);
                 }
 
             } else {
-                const errData = await response.json().catch(() => ({}));
-                smallText.innerText = errData.detail || 'Connection Failed';
+                smallText.innerText = response.status === 409 ? 'Not possible during a scan' : await window.apiError(response);
                 smallText.style.color = '#EF4444';
                 btnElement.innerText = 'Connect';
                 btnElement.disabled = false;
@@ -345,6 +426,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if(!isBtPowerOn) return;
         const listContainer = document.getElementById('bt-list');
         if(!listContainer) return;
+        if (isScannerBusy) return renderLockedState('bt-list', 'bt');
 
         if (!listContainer.innerHTML.includes('list-item')) listContainer.innerHTML = loadingSVG;
         
@@ -378,7 +460,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 item.innerHTML = `
                     <div class="list-info" style="flex: 1;">
-                        <span style="${isConnected ? 'color: var(--accent);' : ''}">${dev.name || dev.mac_address}</span>
+                        <span style="${isConnected ? 'color: var(--accent);' : ''}">${esc(dev.name || dev.mac_address)}</span>
                         <small>${isConnected ? 'Connected' : (dev.paired ? 'Paired' : 'Found')} | Signal: ${dev.rssi || '-'} dBm</small>
                     </div>
                     <button class="${btnClass} action-btn" style="padding: 6px 14px; font-size: 0.8rem; min-height: 28px; width: 90px; text-align: center;">${btnText}</button>
@@ -391,7 +473,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     if (isConnected) {
                         actionBtn.innerText = '...';
-                        try { await fetch(`${API_URL}/system/bluetooth/disconnect`, { method: 'POST' }).catch(()=>{}); } catch(err){}
+                        try {
+                            const res = await fetch(`${API_URL}/system/bluetooth/disconnect`, {
+                                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mac_address: dev.mac_address })
+                            });
+                            if (!res.ok) alert(await window.apiError(res));
+                        } catch(err){}
                         loadBluetoothDevices(); 
                         return;
                     }
@@ -402,6 +489,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const res = await fetch(`${API_URL}/system/bluetooth/connect`, {
                             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mac_address: dev.mac_address })
                         });
+                        if (!res.ok) alert(await window.apiError(res));
                         loadBluetoothDevices(); 
                     } catch(err) {
                         item.querySelector('small').innerText = "Failed";

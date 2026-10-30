@@ -19,7 +19,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const searchInput = document.getElementById('library-search-input');
     const libTabs = document.querySelectorAll('.lib-tab');
 
+    const btnExportBt = document.getElementById('btn-export-bt');
+    const btnExportBtCancel = document.getElementById('btn-export-bt-cancel');
+    const exportStatus = document.getElementById('export-status');
+    const btnSaveEdit = document.getElementById('btn-save-edit');
+    const btnCancelEdit = document.getElementById('btn-cancel-edit');
+
+    const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
     let allLibraryItems = [];
+    let currentItem = null;
+    let exportPollTimer = null;
     let currentCategory = 'All';
     let currentLoadedModelId = null;
     let currentFmt = 'glb'; 
@@ -42,6 +52,8 @@ document.addEventListener('DOMContentLoaded', () => {
         btnBack.addEventListener('click', () => {
             detailView.style.display = 'none';
             gridView.style.display = 'flex';
+            stopExportPolling();
+            showExportStatus('');
             if (mainModelObject && mainScene) {
                 mainScene.remove(mainModelObject);
                 mainModelObject = null;
@@ -50,17 +62,144 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    if (btnExport) {
-        btnExport.addEventListener('click', () => {
-            if (!currentLoadedModelId) return;
-            // Descarcăm modelul direct ca fișier utilizând un link temporar
-            const url = `${API_URL}/library/objects/${currentLoadedModelId}/model?format=${currentFmt}&lod=${currentLod}`;
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `scan_${currentLoadedModelId}_${currentLod}.${currentFmt}`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
+    function showExportStatus(text, isError = false) {
+        if (!exportStatus) return;
+        exportStatus.style.display = text ? 'block' : 'none';
+        exportStatus.style.color = isError ? '#ef4444' : 'var(--text-muted)';
+        exportStatus.innerText = text || '';
+    }
+
+    function stopExportPolling() {
+        clearTimeout(exportPollTimer);
+        exportPollTimer = null;
+        if (btnExportBtCancel) btnExportBtCancel.style.display = 'none';
+        if (btnExport) btnExport.disabled = false;
+        if (btnExportBt) btnExportBt.disabled = false;
+    }
+
+    // Poll every second until the export ends; onState returns true when finished
+    function pollExport(path, onState) {
+        const tick = async () => {
+            try {
+                const res = await fetch(`${API_URL}${path}`);
+                if (!res.ok) throw new Error(await window.apiError(res));
+                if (onState(await res.json())) return stopExportPolling();
+            } catch (e) {
+                showExportStatus(e.message, true);
+                return stopExportPolling();
+            }
+            exportPollTimer = setTimeout(tick, 1000);
+        };
+        tick();
+    }
+
+    async function startExport(kind) {
+        if (!currentLoadedModelId) return;
+        const isUsb = kind === 'usb';
+        showExportStatus('');
+        btnExport.disabled = true;
+        btnExportBt.disabled = true;
+        try {
+            // GET /library/usb lists the sticks; with several, the user picks one
+            let body = null;
+            if (isUsb) {
+                const listRes = await fetch(`${API_URL}/library/usb`);
+                if (listRes.ok) {
+                    const sticks = await listRes.json();
+                    if (sticks.length === 0) {
+                        showExportStatus('Insert a USB stick.', true);
+                        return stopExportPolling();
+                    }
+                    if (sticks.length > 1) {
+                        const names = sticks.map((st, i) => `${i + 1}. ${st.label || st.device}`).join('\n');
+                        const pick = parseInt(prompt(`Which USB stick?\n${names}`, '1'), 10);
+                        if (!(pick >= 1 && pick <= sticks.length)) return stopExportPolling();
+                        body = { device: sticks[pick - 1].device };
+                    }
+                }
+            }
+            const res = await fetch(`${API_URL}/library/objects/${currentLoadedModelId}/export/${kind}`, {
+                method: 'POST',
+                headers: body ? { 'Content-Type': 'application/json' } : {},
+                body: body ? JSON.stringify(body) : undefined
+            });
+            if (res.status === 503) {
+                showExportStatus(isUsb ? 'Insert a USB stick.' : 'Connect a Bluetooth device first.', true);
+                return stopExportPolling();
+            }
+            if (!res.ok) {
+                showExportStatus(await window.apiError(res), true);
+                return stopExportPolling();
+            }
+        } catch (e) {
+            showExportStatus('Could not reach the scanner.', true);
+            return stopExportPolling();
+        }
+
+        if (isUsb) {
+            showExportStatus('Copying to USB...');
+            pollExport('/library/export/usb/status', (st) => {
+                if (st.state === 'error') { showExportStatus(st.error || 'USB export failed.', true); return true; }
+                if (st.state === 'done' && st.safe_to_remove) { showExportStatus('Done. You can remove the stick.'); return true; }
+                const pct = st.bytes_total ? Math.round((st.bytes_done / st.bytes_total) * 100) : 0;
+                if (st.state === 'syncing') showExportStatus('Finishing, do not remove the stick yet...');
+                else if (st.state === 'mounting') showExportStatus('Opening the USB stick...');
+                else showExportStatus(`Copying to USB... ${pct}%`);
+                return false;
+            });
+        } else {
+            btnExportBtCancel.style.display = 'flex';
+            showExportStatus('Preparing archive...');
+            pollExport('/library/export/bluetooth/status', (st) => {
+                if (st.state === 'error') { showExportStatus(st.error || 'Bluetooth export failed.', true); return true; }
+                if (st.state === 'cancelled') { showExportStatus('Transfer cancelled.'); return true; }
+                if (st.state === 'done') { showExportStatus('Sent to the phone.'); return true; }
+                showExportStatus(st.state === 'sending' ? 'Sending to the phone...' : 'Preparing archive...');
+                return false;
+            });
+        }
+    }
+
+    if (btnExport) btnExport.addEventListener('click', () => startExport('usb'));
+    if (btnExportBt) btnExportBt.addEventListener('click', () => startExport('bluetooth'));
+    if (btnExportBtCancel) {
+        btnExportBtCancel.addEventListener('click', async () => {
+            try { await fetch(`${API_URL}/library/export/bluetooth/cancel`, { method: 'POST' }); } catch (e) {}
+        });
+    }
+
+    // --- EDIT (PATCH only the changed fields) ---
+    function fillDetailForm() {
+        if (!currentItem) return;
+        document.getElementById('detail-title').value = currentItem.object.title || currentItem.id;
+        document.getElementById('detail-desc').value = currentItem.object.description || '';
+    }
+
+    if (btnCancelEdit) btnCancelEdit.addEventListener('click', fillDetailForm);
+
+    if (btnSaveEdit) {
+        btnSaveEdit.addEventListener('click', async () => {
+            if (!currentItem) return;
+            const title = document.getElementById('detail-title').value.trim();
+            const description = document.getElementById('detail-desc').value.trim();
+            const patch = {};
+            if (title && title !== (currentItem.object.title || currentItem.id)) patch.title = title;
+            if (description !== (currentItem.object.description || '')) patch.description = description;
+            if (Object.keys(patch).length === 0) return;
+
+            btnSaveEdit.innerText = 'Saving...';
+            try {
+                const res = await fetch(`${API_URL}/library/objects/${currentItem.id}`, {
+                    method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch)
+                });
+                if (!res.ok) throw new Error(await window.apiError(res));
+                const updated = await res.json();
+                Object.assign(currentItem.object, updated.object || patch);
+                renderGrid(searchInput ? searchInput.value : '');
+            } catch (e) {
+                alert(`Could not save: ${e.message}`);
+            }
+            btnSaveEdit.innerText = 'Save Changes';
         });
     }
 
@@ -70,12 +209,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (confirm("Are you sure you want to delete this scan? This action cannot be undone.")) {
                 try {
                     const res = await fetch(`${API_URL}/library/objects/${currentLoadedModelId}`, { method: 'DELETE' });
-                    if (!res.ok) throw new Error("Delete failed");
+                    // 405 = the server has no delete route for the library (yet)
+                    if (res.status === 405) throw new Error("This scanner version cannot delete models yet.");
+                    if (!res.ok) throw new Error(await window.apiError(res));
                     alert("Scan deleted successfully.");
                     fetchLibraryData();
                     btnBack.click();
                 } catch (error) {
-                    alert("Failed to delete the scan.");
+                    alert(`Failed to delete the scan: ${error.message}`);
                 }
             }
         });
@@ -95,6 +236,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function getCategory(item) {
+        // Explicit category saved with the model wins (object.json "kind": "face" | "object")
+        const kind = (item.object.kind || '').toLowerCase();
+        if (kind === 'face') return 'Faces';
+        if (kind === 'object') return 'Objects';
         const title = (item.object.title || item.id).toLowerCase();
         const desc = (item.object.description || '').toLowerCase();
         if (title.includes('face') || title.includes('profile') || title.includes('subject') || title.includes('head') || desc.includes('face') || desc.includes('profile')) return 'Faces';
@@ -146,7 +291,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="lib-card-badge" style="position: absolute; top:10px; right:10px; background:var(--bg-secondary); padding:4px 8px; border-radius:4px; font-size:0.75rem; font-weight:700; z-index: 10;">${format.toUpperCase()}</div>
                 </div>
                 <div class="lib-card-info" style="padding: 16px; height: 80px; box-sizing: border-box;">
-                    <div class="lib-card-title" style="font-weight: 600; font-size: 1.1rem; margin-bottom: 8px; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.object.title || item.id}</div>
+                    <div class="lib-card-title" style="font-weight: 600; font-size: 1.1rem; margin-bottom: 8px; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${esc(item.object.title || item.id)}</div>
                     <div class="lib-card-meta" style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-muted); font-family: var(--font-mono);">
                         <span>Scan ${item.id.substring(item.id.length - 4)}</span>
                         <span>${dateStr}</span>
@@ -221,6 +366,8 @@ document.addEventListener('DOMContentLoaded', () => {
         gridView.style.display = 'none';
         detailView.style.display = 'flex';
         currentLoadedModelId = item.id;
+        currentItem = item;
+        showExportStatus('');
         
         currentFmt = (item.models && item.models['.glb']) ? 'glb' : 'stl';
         currentLod = 'low';

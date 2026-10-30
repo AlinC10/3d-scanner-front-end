@@ -17,3 +17,8 @@
   font-size: 1.6rem; 
   text-align: center;
 }
+
+/* Cameras off (processing / done): no preview, the status panel stays in the middle */
+.scanning-container.stream-off .scan-progress-wrapper {
+  width: 520px !important;
+}

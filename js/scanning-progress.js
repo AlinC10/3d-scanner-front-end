@@ -6,7 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let hasSentStartCommand = false;
 
     const urlParams = new URLSearchParams(window.location.search);
-    const scanMode = urlParams.get('mode') || localStorage.getItem('scanMode') || 'object';
+    let scanMode = urlParams.get('mode') || localStorage.getItem('scanMode') || 'object';
 
     // Extragem setările avansate pregătite din pasul anterior
     let pendingScanSettings = {};
@@ -37,6 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnSaveDetails = document.getElementById('btn-save-details');
     const btnSkipDetails = document.getElementById('btn-skip-details');
     let libraryResultId = null;
+    let lastStatusKey = '';
 
     // --- 1. SCHIMBARE CAMERE ---
     let activeCameraId = 1;
@@ -47,8 +48,24 @@ document.addEventListener('DOMContentLoaded', () => {
         return `${API_URL}/scanner/stream/mjpeg?camera=${camId}&t=${new Date().getTime()}`;
     }
 
+    // After the photos are taken the cameras stop: drop the <img> (its last frame would stay
+    // frozen on screen), stop the reload retries and centre the status panel.
+    let streamStopped = false;
+    function stopStreamView() {
+        if (streamStopped) return;
+        streamStopped = true;
+        clearTimeout(retryTimer);
+        if (scanStream) {
+            scanStream.onerror = null;
+            scanStream.removeAttribute('src');
+            scanStream.style.display = 'none';
+        }
+        if (btnSwitchCamera) btnSwitchCamera.style.display = 'none';
+        document.querySelector('.scanning-container')?.classList.add('stream-off');
+    }
+
     function loadStream(camId, attempt = 0) {
-        if (!scanStream) return;
+        if (!scanStream || streamStopped) return;
         clearTimeout(retryTimer);
         scanStream.onerror = null;
         scanStream.removeAttribute('src');
@@ -71,11 +88,26 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnSwitchCamera) {
         btnSwitchCamera.addEventListener('click', (e) => {
             e.preventDefault();
+            if (streamStopped) return;
             activeCameraId = (activeCameraId === 1) ? 2 : 1;
             if (switchCamText) switchCamText.innerText = `Switch Camera (Cam ${activeCameraId})`;
             loadStream(activeCameraId);
         });
     }
+
+    // Warn when the connection drops during the scan (photos are uploaded as they are taken)
+    window.addEventListener('network-state', (e) => {
+        if (!phaseMessage || !hasSentStartCommand || statusInterval === null) return;
+        let warn = document.getElementById('scan-net-warning');
+        if (!warn) {
+            warn = document.createElement('div');
+            warn.id = 'scan-net-warning';
+            warn.style.cssText = 'color:#f59e0b; font-size:0.85rem; text-align:center; margin-bottom:16px;';
+            phaseMessage.insertAdjacentElement('afterend', warn);
+        }
+        const offline = !e.detail.ethernet && !e.detail.wifi;
+        warn.innerText = offline ? '⚠ No network connection: photo upload is paused. Plug in the Ethernet cable.' : '';
+    });
 
     // --- 2. CANCEL ACTION ---
     async function triggerCancel() {
@@ -102,7 +134,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 
                 if (!faceRes.ok) {
-                    const errText = await faceRes.text();
+                    const errText = await window.apiError(faceRes);
                     statusTitle.innerText = "Server Rejected Start Command!";
                     phaseMessage.innerText = errText;
                     statusTitle.style.color = "#ef4444";
@@ -118,7 +150,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 
                 if (!startRes.ok) {
-                    const errText = await startRes.text();
+                    const errText = await window.apiError(startRes);
                     statusTitle.innerText = "Server Rejected Start Command!";
                     phaseMessage.innerText = errText;
                     statusTitle.style.color = "#ef4444";
@@ -136,7 +168,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- 4. SALVARE METADATE (Titlu/Descriere la final) ---
+    function markScanSeen() {
+        try { sessionStorage.setItem('scanMonitorDismissed', lastStatusKey); } catch (e) {}
+    }
+
     async function saveFinalDetails() {
+        markScanSeen();
         if (!libraryResultId) return window.location.href = 'library.html';
         
         const t = document.getElementById('scan-title-input').value.trim();
@@ -159,7 +196,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if(btnSaveDetails) btnSaveDetails.addEventListener('click', saveFinalDetails);
-    if(btnSkipDetails) btnSkipDetails.addEventListener('click', () => window.location.href = 'library.html');
+    if(btnSkipDetails) btnSkipDetails.addEventListener('click', () => { markScanSeen(); window.location.href = 'library.html'; });
 
 
     // --- 5. POLLING PENTRU STATUS ---
@@ -179,6 +216,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Indiferent că e trimis ca 'PREPARED', 'Prepared' sau 'prepared', îl normalizăm
                     const rawState = data.state || '';
                     const currentState = rawState.toLowerCase();
+                    lastStatusKey = `${currentState}:${data.job_id || ''}:${data.result_id || ''}`;
+
+                    // Returning to a scan that already started: do not send start again, just follow it
+                    if (!hasSentStartCommand && ['running', 'processing', 'downloading'].includes(currentState)) {
+                        hasSentStartCommand = true;
+                        if (data.mode) scanMode = data.mode;
+                    }
+
+                    // Cameras are off once the run reaches the cloud / face reconstruction step
+                    if (hasSentStartCommand && (currentState === 'processing' || currentState === 'downloading' || data.phase === 'reconstructing_face')) {
+                        stopStreamView();
+                    }
 
                     if (data.phase_message && phaseMessage && !statusTitle.innerText.includes("Rejected")) {
                         phaseMessage.innerText = data.phase_message;
@@ -205,7 +254,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             const pct = Math.round((up / tot) * 100);
                             
                             progressBar.style.width = `${pct}%`;
-                            progressText.innerText = `${up} / ${tot} Photos Uploaded`;
+                            const cap = data.photos_captured || 0;
+                            const ring = data.level ? `Ring ${data.level} · ` : '';
+                            progressText.innerText = `${ring}${cap} captured · ${up} / ${tot} uploaded`;
                             progressPct.innerText = `${pct}%`;
                             progressBar.style.opacity = '1';
                         } else {
@@ -220,6 +271,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const finalStates = ["completed", "error", "cancelled"];
                     if (finalStates.includes(currentState)) {
                         clearInterval(statusInterval);
+                        stopStreamView();
 
                         if (currentState === "error") {
                             if (statusTitle) {
@@ -244,12 +296,41 @@ document.addEventListener('DOMContentLoaded', () => {
                             
                             progressContainer.style.display = 'none';
                             btnCancel.style.display = 'none';
-                            btnSwitchCamera.style.display = 'none';
                             
                             if (scanMode === 'face' && data.face_result) {
                                 libraryResultId = data.face_result.result_id;
                             } else {
                                 libraryResultId = data.result_id;
+                            }
+
+                            const fr = scanMode === 'face' ? data.face_result : null;
+                            if (fr) {
+                                const bits = [];
+                                if (fr.warning) bits.push(`⚠ ${fr.warning}`);
+                                const m = fr.metrics;
+                                if (m && m.dimensions_mm) bits.push(`Face ${Math.round(m.dimensions_mm.width)} × ${Math.round(m.dimensions_mm.height)} mm`);
+                                if (m && m.interpupillary_distance_mm) bits.push(`IPD ${m.interpupillary_distance_mm.toFixed(1)} mm`);
+                                if (bits.length) phaseMessage.innerText = bits.join('\n');
+                            }
+                            if (data.missing && data.missing.length) phaseMessage.innerText += `\n${data.missing.length} photo(s) missing in the cloud`;
+
+                            // Name / description typed before the scan: show them in the final form, and save the
+                            // description now (the start request only carries the name)
+                            let preTitle = '', preDesc = '';
+                            try {
+                                preTitle = localStorage.getItem('pendingScanTitle') || '';
+                                preDesc = localStorage.getItem('pendingScanDescription') || '';
+                                localStorage.removeItem('pendingScanTitle');
+                                localStorage.removeItem('pendingScanDescription');
+                            } catch (e) {}
+                            const titleInput = document.getElementById('scan-title-input');
+                            const descInput = document.getElementById('scan-desc-input');
+                            if (titleInput) titleInput.value = preTitle;
+                            if (descInput) descInput.value = preDesc;
+                            if (preDesc && libraryResultId) {
+                                fetch(`${API_URL}/library/objects/${libraryResultId}`, {
+                                    method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ description: preDesc })
+                                }).catch(() => {});
                             }
 
                             // Afișăm formularul final pentru editare Titlu/Descriere

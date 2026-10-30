@@ -32,37 +32,34 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- HELPER: SET VALUE ---
-    const setSliderValue = (id, val, textSuffix = '') => {
+    const setSliderValue = (id, val, textSuffix = '', decimals = 0) => {
         const slider = document.getElementById(id);
         const textVal = document.getElementById(id + '-val');
         if (slider && textVal) {
             slider.value = val;
-            textVal.innerText = parseFloat(val).toFixed(1) + textSuffix;
+            textVal.innerText = parseFloat(slider.value).toFixed(decimals) + textSuffix;
         }
     };
 
     // --- SYNC SLIDERS ---
-    const syncSlider = (id, suffix = '', isFloat = false) => {
+    const syncSlider = (id, suffix = '', decimals = 0) => {
         const slider = document.getElementById(id);
         const val = document.getElementById(id + '-val');
         if(slider && val) {
             slider.addEventListener('input', () => {
-                let displayVal = slider.value;
-                if (isFloat) displayVal = parseFloat(slider.value).toFixed(1);
-                val.innerText = displayVal + suffix;
+                val.innerText = parseFloat(slider.value).toFixed(decimals) + suffix;
             });
         }
     };
     
     // Sync Sliders: Object Scan
-    syncSlider('cfg-obj-z');
-    syncSlider('cfg-obj-delay-tt');
+    syncSlider('cfg-obj-z', '', 1);          // z_start_mm: multiple of 8
+    syncSlider('cfg-obj-delay-tt', '', 3);
     syncSlider('cfg-obj-photo-q', '%'); 
-    syncSlider('cfg-adv-delay-z');
+    syncSlider('cfg-adv-delay-z', '', 4);    // 0.001 - 0.003
+    syncSlider('cfg-adv-distance-z');        // z_axis.distance_mm: multiple of 8
     syncSlider('cfg-adv-led', '%'); 
-    
-    // Noul slider pentru rotație (valori continue, pas de 1.8)
-    syncSlider('cfg-obj-turntable', '°', true); 
+    syncSlider('cfg-obj-turntable', '°', 1);
 
     // Sync Sliders: Face Scan
     syncSlider('cfg-face-start-z');
@@ -71,6 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
     syncSlider('cfg-face-search-range');
     syncSlider('cfg-face-step');
     syncSlider('cfg-face-manual-z');
+    syncSlider('cfg-face-delay-z', '', 4);   // 0.001 - 0.003
 
     // Logică pentru a activa Manual Z doar când Search Strategy este 'none'
     const strategySelect = document.getElementById('cfg-face-strategy');
@@ -91,14 +89,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnResetObj = document.getElementById('btn-reset-obj-defaults');
     if (btnResetObj) {
         btnResetObj.addEventListener('click', () => {
-            setSliderValue('cfg-obj-z', 80);
-            setSliderValue('cfg-obj-turntable', 18.0, '°');
-            setSliderValue('cfg-obj-delay-tt', 0.01);
+            setSliderValue('cfg-obj-z', 32, '', 1);
+            setSliderValue('cfg-obj-turntable', 18.0, '°', 1);
+            setSliderValue('cfg-obj-delay-tt', 0.01, '', 3);
             setSliderValue('cfg-obj-photo-q', 95, '%');
-            setSliderValue('cfg-adv-delay-z', 0.01);
+            setSliderValue('cfg-adv-delay-z', 0.001, '', 4);
+            setSliderValue('cfg-adv-distance-z', 80);
             
             const objRes = document.getElementById('cfg-obj-preview-res');
-            if (objRes) objRes.value = '1012x760';
+            if (objRes) objRes.value = '960x720';
 
             setSliderValue('cfg-adv-led', 100, '%');
         });
@@ -107,7 +106,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnResetFace = document.getElementById('btn-reset-face-defaults');
     if (btnResetFace) {
         btnResetFace.addEventListener('click', () => {
-            setSliderValue('cfg-face-start-z', 150);
+            setSliderValue('cfg-face-start-z', 144);
+            setSliderValue('cfg-face-delay-z', 0.001, '', 4);
             setSliderValue('cfg-face-photo-q', 95, '%');
             setSliderValue('cfg-face-led', 35, '%');
             
@@ -121,6 +121,18 @@ document.addEventListener('DOMContentLoaded', () => {
             setSliderValue('cfg-face-step', 8);
             setSliderValue('cfg-face-manual-z', 200);
         });
+    }
+
+    // Optional name / description typed before the scan. The name goes in the start request (title);
+    // the API has no description field there, so scanning-progress.js saves it with PATCH once the model exists.
+    const readTitle = (id) => document.getElementById(id)?.value.trim() || null;
+    function savePendingDetails(titleId, descId) {
+        const title = readTitle(titleId);
+        const desc = document.getElementById(descId)?.value.trim();
+        try {
+            title ? localStorage.setItem('pendingScanTitle', title) : localStorage.removeItem('pendingScanTitle');
+            desc ? localStorage.setItem('pendingScanDescription', desc) : localStorage.removeItem('pendingScanDescription');
+        } catch (e) {}
     }
 
     // --- TRIGGER HARDWARE PREPARE ---
@@ -139,8 +151,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (response.ok || response.status === 202) {
                 window.location.href = `scanning.html?mode=${mode}`;
             } else {
-                const errorData = await response.text();
-                alert(`Backend Validation Error:\n${errorData}`);
+                alert(`Scanner refused the request:\n${await window.apiError(response)}`);
                 
                 const btnObjPrep = document.getElementById('btn-start-obj-prep');
                 if (btnObjPrep) btnObjPrep.innerText = "▶ Prepare Scan";
@@ -156,11 +167,32 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // An object scan uploads the photos as they are taken, and the server refuses network changes
+    // while it runs: a dropped Wi-Fi then loses the scan. Warn before starting without a cable.
+    async function confirmNetworkForCloudScan() {
+        try {
+            const res = await fetch(`${API_URL}/system/status`);
+            if (!res.ok) return true;
+            const sys = await res.json();
+            const cable = sys.ethernet && sys.ethernet.connected;
+            const wifi = sys.wifi && sys.wifi.connected;
+            if (!cable && !wifi) {
+                return confirm("The scanner is not connected to any network, so the photos cannot be uploaded and the scan will fail.\n\nStart anyway?");
+            }
+            if (!cable) {
+                return confirm("The scanner is connected by Wi-Fi only. Network settings are locked during a scan, and if the Wi-Fi drops the scan is lost.\n\nPlug in the Ethernet cable if you can. Start anyway?");
+            }
+        } catch (e) {}
+        return true;
+    }
+
     // --- START BUTTON (OBJECT SCAN) ---
     const btnObjPrep = document.getElementById('btn-start-obj-prep');
     if(btnObjPrep) {
-        btnObjPrep.addEventListener('click', () => {
-            let previewRes = [1012, 760];
+        btnObjPrep.addEventListener('click', async () => {
+            if (!(await confirmNetworkForCloudScan())) return;
+
+            let previewRes = [960, 720];
             const uiPrevRes = document.getElementById('cfg-obj-preview-res')?.value;
             if (uiPrevRes) {
                 const parts = uiPrevRes.split('x');
@@ -169,12 +201,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const ledBrightness = parseFloat(document.getElementById('cfg-adv-led')?.value || 100) / 100;
             const photoQuality = parseInt(document.getElementById('cfg-obj-photo-q')?.value || 95);
+            const zDelay = parseFloat(document.getElementById('cfg-adv-delay-z')?.value || 0.001);
 
             // PAYLOAD 1: Doar ce cere /scanner/prepare
             const preparePayload = {
                 "enable_stream": true,
                 "illumination_brightness": ledBrightness,
-                "z_start_mm": parseFloat(document.getElementById('cfg-obj-z')?.value || 80),
+                "z_start_mm": parseFloat(document.getElementById('cfg-obj-z')?.value ?? 32),
                 "camera_config": {
                     "quality": photoQuality,
                     "photo_resolution": [4056, 3040],
@@ -193,12 +226,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         "angle": turntableAngle,
                         "delay": parseFloat(document.getElementById('cfg-obj-delay-tt')?.value || 0.01),
                         "acceleration": true,
-                        "ramp_percent": 0.2,
+                        "ramp_percent": 0.4,   // acceleration
+                        "decel_percent": 0.5,  // deceleration
                         "end_delay": 0.015
                     },
                     "z_axis": {
-                        "distance_mm": 100.0, 
-                        "delay": parseFloat(document.getElementById('cfg-adv-delay-z')?.value || 0.01),
+                        "distance_mm": parseFloat(document.getElementById('cfg-adv-distance-z')?.value || 80), 
+                        "delay": zDelay,
                         "acceleration": false,
                         "ramp_percent": 0.2
                     }
@@ -206,9 +240,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 "cloud": {
                     "launch_runpod": true,
                     "resolution_level": 1,
-                    "title": null
+                    "title": readTitle('cfg-obj-title')
                 }
             };
+            savePendingDetails('cfg-obj-title', 'cfg-obj-desc');
 
             btnObjPrep.innerText = "Preparing Hardware...";
             callPrepareAndRedirect(preparePayload, startPayload, 'object', '/scanner/prepare');
@@ -221,14 +256,16 @@ document.addEventListener('DOMContentLoaded', () => {
         btnFacePrep.addEventListener('click', () => {
             const faceQuality = parseInt(document.getElementById('cfg-face-photo-q')?.value || 95);
             const faceBrightness = parseFloat(document.getElementById('cfg-face-led')?.value || 35) / 100;
-            const startZ = parseFloat(document.getElementById('cfg-face-start-z')?.value || 150);
+            const startZ = parseFloat(document.getElementById('cfg-face-start-z')?.value || 144);
+            const zDelay = parseFloat(document.getElementById('cfg-face-delay-z')?.value || 0.001);
             
             // PAYLOAD 1: Doar ce cere /scanner/face/prepare
             const preparePayload = {
                 "enable_stream": true,
                 "illumination_brightness": faceBrightness,
                 "start_z_mm": startZ,
-                "upload_r2": true, // Să fie salvate în cloud
+                "upload_r2": false, // fața rămâne pe Pi (default API)
+                "z_delay": zDelay,
                 "camera_config": {
                     "quality": faceQuality,
                     "focus": "auto" // Auto focus la captură
@@ -249,8 +286,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 "step_mm": stepMm,
                 "manual_z": manualZ,
                 "settle_s": 0.15,
+                "title": readTitle('cfg-face-title'),
                 "reconstruct": true // Vrem model 3D
             };
+            savePendingDetails('cfg-face-title', 'cfg-face-desc');
 
             btnFacePrep.innerText = "Preparing Hardware...";
             callPrepareAndRedirect(preparePayload, startPayload, 'face', '/scanner/face/prepare');

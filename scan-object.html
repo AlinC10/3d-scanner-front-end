@@ -73,13 +73,24 @@
                     <button class="btn-primary" id="btn-start-obj-prep" style="margin-bottom: 12px; width: 100%; height: 50px; font-size: 1.1rem; justify-content: center;">▶ Prepare Scan</button>
                     <button class="btn-secondary" id="btn-reset-obj-defaults" style="margin-bottom: 24px; width: 100%; justify-content: center; min-height: 40px; font-size: 0.9rem; color: var(--text-muted);">↺ Reset to Defaults</button>
 
+<div class="settings-grid" style="margin-bottom: 16px;">
+                        <div class="setting-row-box" style="padding: 16px; flex-direction: column; align-items: flex-start; gap: 8px;">
+                            <label class="setting-row-title">Name (optional)</label>
+                            <input type="text" id="cfg-obj-title" maxlength="120" placeholder="e.g. Ancient Vase" style="width: 100%; box-sizing: border-box; height: 40px; padding: 0 12px; border-radius: 6px; background: var(--bg-primary); color: var(--text-main); border: 1px solid var(--neutral-border);">
+                        </div>
+                        <div class="setting-row-box" style="padding: 16px; flex-direction: column; align-items: flex-start; gap: 8px;">
+                            <label class="setting-row-title">Description (optional)</label>
+                            <textarea id="cfg-obj-desc" maxlength="2000" rows="2" placeholder="Add details..." style="width: 100%; box-sizing: border-box; padding: 8px 12px; border-radius: 6px; resize: none; background: var(--bg-primary); color: var(--text-main); border: 1px solid var(--neutral-border); font-family: inherit;"></textarea>
+                        </div>
+                    </div>
+
                     <div class="settings-grid">
                         <div class="setting-row-box" style="padding: 16px; flex-direction: column; align-items: flex-start; gap:8px;">
                             <div style="display:flex; justify-content: space-between; width: 100%;">
-                                <label class="setting-row-title">Z-Axis Height (mm)</label>
-                                <span id="cfg-obj-z-val" style="font-family: var(--font-mono); font-weight: 600; color: var(--accent);">80</span>
+                                <label class="setting-row-title">Start Height Z (mm)</label>
+                                <span id="cfg-obj-z-val" style="font-family: var(--font-mono); font-weight: 600; color: var(--accent);">32.0</span>
                             </div>
-                            <input type="range" id="cfg-obj-z" min="50" max="150" value="80" style="width: 100%;">
+                            <input type="range" id="cfg-obj-z" min="0" max="56" step="8" value="32" style="width: 100%;">
                         </div>
 
                         <!-- SLIDER ROTAȚIE PLATAN (Din 1.8 in 1.8 grade) -->
@@ -94,7 +105,7 @@
                         <div class="setting-row-box" style="padding: 16px; flex-direction: column; align-items: flex-start; gap:8px;">
                             <div style="display:flex; justify-content: space-between; width: 100%;">
                                 <label class="setting-row-title">Turntable Delay (s)</label>
-                                <span id="cfg-obj-delay-tt-val" style="font-family: var(--font-mono); font-weight: 600; color: var(--accent);">0.01</span>
+                                <span id="cfg-obj-delay-tt-val" style="font-family: var(--font-mono); font-weight: 600; color: var(--accent);">0.010</span>
                             </div>
                             <input type="range" id="cfg-obj-delay-tt" min="0.002" max="0.05" step="0.002" value="0.01" style="width: 100%;">
                         </div>
@@ -119,9 +130,17 @@
                             <div class="setting-row-box" style="padding: 16px; flex-direction: column; align-items: flex-start; gap:8px;">
                                 <div style="display:flex; justify-content: space-between; width: 100%;">
                                     <label class="setting-row-title">Z-Axis Delay (s)</label>
-                                    <span id="cfg-adv-delay-z-val" style="font-family: var(--font-mono); font-weight: 600; color: var(--accent);">0.01</span>
+                                    <span id="cfg-adv-delay-z-val" style="font-family: var(--font-mono); font-weight: 600; color: var(--accent);">0.0010</span>
                                 </div>
-                                <input type="range" id="cfg-adv-delay-z" min="0.001" max="0.002" step="0.0002" value="0.001" style="width: 100%;">
+                                <input type="range" id="cfg-adv-delay-z" min="0.001" max="0.003" step="0.0002" value="0.001" style="width: 100%;">
+                            </div>
+
+                            <div class="setting-row-box" style="padding: 16px; flex-direction: column; align-items: flex-start; gap:8px;">
+                                <div style="display:flex; justify-content: space-between; width: 100%;">
+                                    <label class="setting-row-title">Climb Between Rings (mm)</label>
+                                    <span id="cfg-adv-distance-z-val" style="font-family: var(--font-mono); font-weight: 600; color: var(--accent);">80</span>
+                                </div>
+                                <input type="range" id="cfg-adv-distance-z" min="48" max="152" step="8" value="80" style="width: 100%;">
                             </div>
 
                             <div class="setting-row-box" style="padding: 16px; flex-direction: column; align-items: flex-start; gap:8px;">
@@ -200,6 +219,7 @@
     <script src="https://cdn.jsdelivr.net/npm/simple-keyboard-autocorrect@latest/build/index.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/swipe-keyboard@latest/build/index.min.js"></script>
     <script src="js/global.js"></script>
+    <script src="js/scan-monitor.js"></script>
     <script src="js/network.js"></script>
     <script src="js/ai-chat.js"></script>
     <script src="js/scanner.js"></script>
