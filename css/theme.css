@@ -67,6 +67,8 @@ svg {
 
 /* 2. Activează "Swipe to Scroll" fluid pentru TOATE zonele care necesită derulare */
 .scrollable-panel,
+.settings-content,
+.details-sidebar,
 .settings-panel,
 .library-grid,
 .modal-body,

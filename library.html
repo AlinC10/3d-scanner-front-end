@@ -83,8 +83,12 @@
                     </div>
                 </div>
                 
-                <div class="library-grid scrollable-panel" id="library-items-container" style="align-content: start; overflow-y: auto; max-height: calc(100vh - 180px); padding-right: 12px;">
-                    <!-- Încărcare din JS -->
+                <div style="display: flex; gap: 16px; flex: 1; min-height: 0;">
+                    <div class="library-grid scrollable-panel" id="library-items-container" style="align-content: start; overflow-y: auto; max-height: calc(100vh - 180px); padding-bottom: 0;">
+                        <!-- Încărcare din JS -->
+                    </div>
+                    <!-- Page numbers (6 models per page), filled from JS -->
+                    <nav id="library-pager" class="scrollable-panel" style="width: 56px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; max-height: calc(100vh - 180px); overflow-y: auto;"></nav>
                 </div>
             </section>
 
@@ -175,7 +179,7 @@
     <script src="https://cdn.jsdelivr.net/npm/swipe-keyboard@latest/build/index.min.js"></script>
 
     <script src="js/global.js"></script>
-    <script src="js/scan-monitor.js"></script>
+    <script src="js/scan-monitor.js?v=2"></script>
     <script src="js/network.js"></script>
     <script src="js/ai-chat.js"></script>
     <script src="js/library.js"></script>

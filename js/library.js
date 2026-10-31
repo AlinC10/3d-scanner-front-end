@@ -27,10 +27,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-    let allLibraryItems = [];
     let currentItem = null;
     let exportPollTimer = null;
-    let currentCategory = 'All';
+    let currentCategory = 'all'; // all | object | face (query of GET /library/objects)
     let currentLoadedModelId = null;
     let currentFmt = 'glb'; 
     let currentLod = 'low'; 
@@ -46,7 +45,6 @@ document.addEventListener('DOMContentLoaded', () => {
     gltfLoader.setDRACOLoader(dracoLoader);
     const stlLoader = new THREE.STLLoader();
 
-    fetchLibraryData();
 
     if (btnBack) {
         btnBack.addEventListener('click', () => {
@@ -54,6 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
             gridView.style.display = 'flex';
             stopExportPolling();
             showExportStatus('');
+            if (libraryDirty) { libraryDirty = false; loadLibrary(currentPage); }
             if (mainModelObject && mainScene) {
                 mainScene.remove(mainModelObject);
                 mainModelObject = null;
@@ -112,7 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     if (sticks.length > 1) {
                         const names = sticks.map((st, i) => `${i + 1}. ${st.label || st.device}`).join('\n');
-                        const pick = parseInt(prompt(`Which USB stick?\n${names}`, '1'), 10);
+                        const pick = parseInt(await window.uiPrompt(`Which USB stick? Type its number.\n${names}`, '1', { title: 'USB stick' }), 10);
                         if (!(pick >= 1 && pick <= sticks.length)) return stopExportPolling();
                         body = { device: sticks[pick - 1].device };
                     }
@@ -195,9 +194,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!res.ok) throw new Error(await window.apiError(res));
                 const updated = await res.json();
                 Object.assign(currentItem.object, updated.object || patch);
-                renderGrid(searchInput ? searchInput.value : '');
+                libraryDirty = true; // the card shows the old title until the list is reloaded
             } catch (e) {
-                alert(`Could not save: ${e.message}`);
+                window.uiAlert(`Could not save: ${e.message}`);
             }
             btnSaveEdit.innerText = 'Save Changes';
         });
@@ -206,88 +205,130 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnDelete) {
         btnDelete.addEventListener('click', async () => {
             if (!currentLoadedModelId) return;
-            if (confirm("Are you sure you want to delete this scan? This action cannot be undone.")) {
+            if (await window.uiConfirm("Are you sure you want to delete this scan? This action cannot be undone.", { title: 'Delete scan', okText: 'Delete', danger: true })) {
                 try {
                     const res = await fetch(`${API_URL}/library/objects/${currentLoadedModelId}`, { method: 'DELETE' });
                     // 405 = the server has no delete route for the library (yet)
                     if (res.status === 405) throw new Error("This scanner version cannot delete models yet.");
                     if (!res.ok) throw new Error(await window.apiError(res));
-                    alert("Scan deleted successfully.");
-                    fetchLibraryData();
+                    window.uiAlert("Scan deleted successfully.");
+                    libraryDirty = true;
                     btnBack.click();
                 } catch (error) {
-                    alert(`Failed to delete the scan: ${error.message}`);
+                    window.uiAlert(`Failed to delete the scan: ${error.message}`);
                 }
             }
         });
     }
 
+    // --- LIST: filter, search and paging are done by the server (GET /library/objects) ---
+    const CATEGORY_BY_TAB = { all: 'all', objects: 'object', faces: 'face' };
+    const PAGE_SIZE = 6;     // models per page
+    let currentPage = 1;     // 1-based
+    let totalPages = 1;
+    const pager = document.getElementById('library-pager');
+    let requestSeq = 0;      // only the newest answer is drawn
+    let libraryDirty = false; // an item was edited: reload the list when going back
+    let searchTimer = null;
+
     libTabs.forEach(tab => {
         tab.addEventListener('click', (e) => {
             libTabs.forEach(t => t.classList.remove('active'));
             e.target.classList.add('active');
-            currentCategory = e.target.innerText.trim();
-            renderGrid(searchInput ? searchInput.value : '');
+            currentCategory = CATEGORY_BY_TAB[e.target.innerText.trim().toLowerCase()] || 'all';
+            loadLibrary(1);      // new filter: back to the first page (offset 0)
         });
     });
 
     if (searchInput) {
-        searchInput.addEventListener('input', (e) => renderGrid(e.target.value));
-    }
-
-    function getCategory(item) {
-        // Explicit category saved with the model wins (object.json "kind": "face" | "object")
-        const kind = (item.object.kind || '').toLowerCase();
-        if (kind === 'face') return 'Faces';
-        if (kind === 'object') return 'Objects';
-        const title = (item.object.title || item.id).toLowerCase();
-        const desc = (item.object.description || '').toLowerCase();
-        if (title.includes('face') || title.includes('profile') || title.includes('subject') || title.includes('head') || desc.includes('face') || desc.includes('profile')) return 'Faces';
-        return 'Objects';
-    }
-
-    // Preluăm o limită mult mai mare pentru a asigura prezența majorității obiectelor în view
-    // Paginarea avansată pe server presupune implementarea infinite-scroll cu request-uri succesive.
-    async function fetchLibraryData() {
-        gridContainer.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: var(--text-muted); padding: 40px;">Loading library archives...</div>`;
-        try {
-            const res = await fetch(`${API_URL}/library/objects?offset=0&limit=100`);
-            if (!res.ok) throw new Error("API Error");
-            const data = await res.json();
-            allLibraryItems = data.items && data.items.length > 0 ? data.items : [];
-        } catch (error) {
-            allLibraryItems = []; 
-        }
-        renderGrid(searchInput ? searchInput.value : '');
-    }
-
-    function renderGrid(searchTerm = '') {
-        gridContainer.innerHTML = '';
-        const lowerSearch = searchTerm.toLowerCase();
-
-        const filteredItems = allLibraryItems.filter(item => {
-            const title = (item.object.title || item.id).toLowerCase();
-            return title.includes(lowerSearch) && (currentCategory === 'All' || getCategory(item) === currentCategory);
+        searchInput.addEventListener('input', () => {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(() => loadLibrary(1), 400); // after a short pause in typing
         });
+    }
 
-        if (filteredItems.length === 0) {
-            gridContainer.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: var(--text-muted); padding: 40px;">No scans found matching criteria.</div>`;
-            return;
+    const messageHtml = (text, color = 'var(--text-muted)') =>
+        `<div style="grid-column: 1/-1; text-align: center; color: ${color}; padding: 40px;">${esc(text)}</div>`;
+
+    async function loadLibrary(page = 1) {
+        const seq = ++requestSeq;
+        currentPage = Math.max(1, page);
+        gridContainer.innerHTML = messageHtml('Loading library archives...');
+        gridContainer.scrollTop = 0;
+
+        const params = new URLSearchParams({ offset: (currentPage - 1) * PAGE_SIZE, limit: PAGE_SIZE, category: currentCategory });
+        const term = (searchInput ? searchInput.value : '').trim().slice(0, 120);
+        if (term) params.set('search', term);
+
+        try {
+            const res = await fetch(`${API_URL}/library/objects?${params}`);
+            if (!res.ok) throw new Error(await window.apiError(res));
+            const data = await res.json();
+            if (seq !== requestSeq) return;
+
+            totalPages = Math.max(1, Math.ceil(data.total / PAGE_SIZE));
+            // the page vanished (last model of it deleted): go to the new last page
+            if (data.items.length === 0 && data.total > 0 && currentPage > totalPages) return loadLibrary(totalPages);
+
+            gridContainer.innerHTML = '';
+            if (data.items.length === 0) {
+                gridContainer.innerHTML = messageHtml('No scans found matching criteria.');
+            } else {
+                appendCards(data.items);
+            }
+        } catch (error) {
+            if (seq !== requestSeq) return;
+            totalPages = 1;
+            gridContainer.innerHTML = messageHtml(`Could not load the library: ${error.message}`, '#ef4444');
         }
-        
-        filteredItems.forEach(item => {
+        renderPager();
+    }
+
+    // Boxes with the page numbers: 1, last, the current page and its neighbours, "…" for the gaps
+    function renderPager() {
+        if (!pager) return;
+        pager.innerHTML = '';
+        if (totalPages <= 1) return;
+
+        const pages = [];
+        for (let n = 1; n <= totalPages; n++) {
+            if (n === 1 || n === totalPages || Math.abs(n - currentPage) <= 1) pages.push(n);
+            else if (pages[pages.length - 1] !== '…') pages.push('…');
+        }
+        pages.forEach((n) => {
+            const box = document.createElement(n === '…' ? 'div' : 'button');
+            box.textContent = n;
+            box.style.cssText = 'width: 48px; height: 48px; flex-shrink: 0; border-radius: 8px; font-size: 1rem; font-weight: 600; font-family: var(--font-mono); display: flex; align-items: center; justify-content: center;';
+            if (n === '…') {
+                box.style.color = 'var(--text-muted)';
+            } else {
+                const active = n === currentPage;
+                box.style.border = `1px solid ${active ? 'var(--accent)' : 'var(--neutral-border)'}`;
+                box.style.background = active ? 'var(--accent)' : 'var(--bg-secondary)';
+                box.style.color = active ? 'var(--bg-primary)' : 'var(--text-main)';
+                box.style.cursor = 'pointer';
+                box.addEventListener('click', () => { if (!active) loadLibrary(n); });
+            }
+            pager.appendChild(box);
+        });
+    }
+
+    function appendCards(items) {
+        items.forEach(item => {
             const dateRaw = item.object.created_at ? new Date(item.object.created_at) : new Date();
             const dateStr = `${dateRaw.toLocaleString('en-US', { month: 'short' })} ${dateRaw.getDate()}`;
             const format = (item.models && item.models['.glb']) ? 'glb' : ((item.models && item.models['.stl']) ? 'stl' : 'glb');
             const cardId = `thumb-${item.id}`;
+            const categoryLabel = item.category === 'face' ? 'FACE' : 'OBJECT';
 
             const card = document.createElement('div');
             card.className = 'lib-card';
-            card.style.height = '280px';
-            card.style.maxHeight = '280px';
+            card.style.height = '264px';
+            card.style.maxHeight = '264px';
             
             card.innerHTML = `
                 <div class="lib-card-preview" id="${cardId}" style="flex: 1; background: rgba(0,0,0,0.2); position: relative; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid var(--neutral-border); overflow: hidden;">
+                    <div class="lib-card-badge" style="position: absolute; top:10px; left:10px; right:auto; background:var(--bg-secondary); color: var(--accent); padding:4px 8px; border-radius:4px; font-size:0.75rem; font-weight:700; z-index: 10;">${categoryLabel}</div>
                     <div class="lib-card-badge" style="position: absolute; top:10px; right:10px; background:var(--bg-secondary); padding:4px 8px; border-radius:4px; font-size:0.75rem; font-weight:700; z-index: 10;">${format.toUpperCase()}</div>
                 </div>
                 <div class="lib-card-info" style="padding: 16px; height: 80px; box-sizing: border-box;">
@@ -573,4 +614,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
     }
+
+    loadLibrary(1); // last: it uses the state declared above
 });

@@ -9,6 +9,73 @@ window.apiError = async function (response) {
     return typeof detail === 'string' ? detail : `HTTP ${response.status}`;
 };
 
+// --- IN-APP DIALOGS (replace alert / confirm / prompt, which look like browser windows in the kiosk) ---
+// Each returns a Promise: uiAlert -> undefined, uiConfirm -> true/false, uiPrompt -> the text or null (Cancel).
+(function () {
+    let dialog = null;
+    let queue = Promise.resolve(); // one dialog at a time, in call order
+
+    function build() {
+        dialog = document.createElement('div');
+        dialog.id = 'ui-dialog';
+        dialog.innerHTML = `
+            <div class="ui-dialog-box" role="dialog" aria-modal="true">
+                <div class="ui-dialog-title"></div>
+                <div class="ui-dialog-msg"></div>
+                <input class="ui-dialog-input custom-input" type="text" autocomplete="off">
+                <div class="ui-dialog-actions">
+                    <button class="btn-secondary ui-dialog-cancel">Cancel</button>
+                    <button class="btn-primary ui-dialog-ok">OK</button>
+                </div>
+            </div>`;
+        document.body.appendChild(dialog);
+        if (window.attachKeyboard) window.attachKeyboard(dialog.querySelector('.ui-dialog-input'));
+    }
+
+    function open(kind, message, opts = {}) {
+        const run = () => new Promise((resolve) => {
+            if (!dialog) build();
+            const title = dialog.querySelector('.ui-dialog-title');
+            const msg = dialog.querySelector('.ui-dialog-msg');
+            const input = dialog.querySelector('.ui-dialog-input');
+            const ok = dialog.querySelector('.ui-dialog-ok');
+            const cancel = dialog.querySelector('.ui-dialog-cancel');
+
+            title.textContent = opts.title || (kind === 'alert' ? 'Notice' : kind === 'confirm' ? 'Please confirm' : 'Input needed');
+            title.style.display = opts.title === '' ? 'none' : 'block';
+            msg.textContent = message;
+            input.style.display = kind === 'prompt' ? 'block' : 'none';
+            input.type = opts.password ? 'password' : 'text';
+            input.value = opts.value || '';
+            cancel.style.display = kind === 'alert' ? 'none' : '';
+            ok.textContent = opts.okText || 'OK';
+            ok.classList.toggle('ui-dialog-danger', !!opts.danger);
+            cancel.textContent = opts.cancelText || 'Cancel';
+
+            const close = (result) => {
+                dialog.classList.remove('show');
+                ok.onclick = cancel.onclick = null;
+                const kb = document.getElementById('keyboard-super-wrapper');
+                if (kb) kb.style.display = 'none';
+                document.body.classList.remove('keyboard-is-open');
+                input.blur();
+                resolve(result);
+            };
+            ok.onclick = () => close(kind === 'prompt' ? input.value : (kind === 'confirm' ? true : undefined));
+            cancel.onclick = () => close(kind === 'prompt' ? null : false);
+            dialog.classList.add('show');
+            if (kind === 'prompt') setTimeout(() => input.focus(), 50);
+        });
+        const p = queue.then(run);
+        queue = p.catch(() => {});
+        return p;
+    }
+
+    window.uiAlert = (message, opts) => open('alert', String(message), opts);
+    window.uiConfirm = (message, opts) => open('confirm', String(message), opts);
+    window.uiPrompt = (message, value = '', opts = {}) => open('prompt', String(message), { ...opts, value });
+})();
+
 document.addEventListener('DOMContentLoaded', () => {
 
     // --- 1. SYSTEM CLOCK ---
@@ -191,64 +258,71 @@ document.addEventListener('DOMContentLoaded', () => {
         if (selectedInput) selectedInput.blur();
     }
 
-    document.querySelectorAll("input[type='text'], input[type='password'], input[type='email'], input[type='number'], textarea").forEach(input => {
+    // Also used for inputs created later (the in-app dialogs)
+    window.attachKeyboard = (input) => {
         input.addEventListener("focus", (e) => {
             selectedInput = e.target;
             myKeyboard.setInput(e.target.value); 
             wrapper.style.display = "block"; 
             document.body.classList.add("keyboard-is-open");
         });
-    });
+    };
+    document.querySelectorAll("input[type='text'], input[type='password'], input[type='email'], input[type='number'], textarea").forEach(window.attachKeyboard);
 
     document.addEventListener('click', (e) => {
         if (selectedInput && !wrapper.contains(e.target) && e.target !== selectedInput) {
             closeKeyboard();
         }
     });
-    const scrollablePanels = document.querySelectorAll('.scrollable-panel');
+    // --- DRAG TO SCROLL (touchscreen) ---
+    // Any element that has a scroll bar can be dragged with a finger: the nearest scrollable ancestor of the
+    // touched point scrolls (works for elements added later too, e.g. the library cards and the test cards).
+    // Buttons, labels and toggles may start a drag too (a drag cancels their click below); text fields, sliders,
+    // lists and the 3D viewer keep their own touch handling.
+    const NO_DRAG = 'input:not([type=button]):not([type=submit]):not([type=checkbox]):not([type=radio]), textarea, select, option, canvas, #model-3d-canvas, .simple-keyboard';
+    const DRAG_THRESHOLD = 8; // px before a touch counts as a drag (a smaller move is a tap)
 
-    scrollablePanels.forEach(panel => {
-        let isDown = false;
-        let startY;
-        let scrollTop;
+    function scrollableAncestor(el) {
+        for (let n = el; n && n !== document.documentElement; n = n.parentElement) {
+            const overflowY = getComputedStyle(n).overflowY;
+            if ((overflowY === 'auto' || overflowY === 'scroll') && n.scrollHeight > n.clientHeight + 1) return n;
+        }
+        return null;
+    }
 
-        // Când atingi ecranul (sau apeși click)
-        panel.addEventListener('pointerdown', (e) => {
-            // Lăsăm utilizatorul să interacționeze normal cu butoanele și sliderele
-            const targetTag = e.target.tagName.toUpperCase();
-            if (['INPUT', 'TEXTAREA', 'BUTTON', 'SELECT', 'OPTION', 'A', 'SVG', 'PATH', 'POLYLINE'].includes(targetTag) || e.target.closest('.toggle-switch')) {
-                return;
-            }
-            
-            isDown = true;
-            startY = e.pageY;
-            scrollTop = panel.scrollTop;
-            panel.style.cursor = 'grabbing';
-        });
+    let drag = null;       // { el, startY, startTop, active }
+    let dragHappened = false;
 
-        // Când ieși cu degetul din zonă
-        panel.addEventListener('pointerleave', () => {
-            isDown = false;
-            panel.style.cursor = 'default';
-        });
-
-        // Când ridici degetul de pe ecran
-        panel.addEventListener('pointerup', () => {
-            isDown = false;
-            panel.style.cursor = 'default';
-        });
-
-        // În timp ce tragi degetul pe ecran
-        panel.addEventListener('pointermove', (e) => {
-            if (!isDown) return;
-            
-            // Prevenim comportamentul default al browserului care ar putea bloca scroll-ul
-            e.preventDefault(); 
-            
-            const y = e.pageY;
-            const walk = (y - startY) * 1.5; // 1.5 este viteza de scroll (mărește-o dacă vrei să se miște mai repede)
-            panel.scrollTop = scrollTop - walk;
-        });
+    document.addEventListener('pointerdown', (e) => {
+        if (e.pointerType === 'mouse' && e.button !== 0) return;
+        if (e.target.closest && e.target.closest(NO_DRAG)) return;
+        const el = scrollableAncestor(e.target);
+        drag = el ? { el, startY: e.clientY, startTop: el.scrollTop, active: false } : null;
     });
+
+    document.addEventListener('pointermove', (e) => {
+        if (!drag) return;
+        const dy = e.clientY - drag.startY;
+        if (!drag.active && Math.abs(dy) < DRAG_THRESHOLD) return;
+        if (!drag.active) {
+            drag.active = true;
+            dragHappened = true;
+            const sel = window.getSelection && window.getSelection();
+            if (sel) sel.removeAllRanges(); // a mouse-emulated touch would otherwise select text while dragging
+        }
+        drag.el.scrollTop = drag.startTop - dy * 1.5; // 1.5 = scroll speed
+    });
+
+    const endDrag = () => {
+        drag = null;
+        setTimeout(() => { dragHappened = false; }, 50);
+    };
+    document.addEventListener('pointerup', endDrag);
+    document.addEventListener('pointercancel', endDrag);
+
+    // A drag must not "click" the card / button under the finger when it ends
+    document.addEventListener('click', (e) => {
+        if (dragHappened) { e.stopPropagation(); e.preventDefault(); }
+    }, true);
 });
 

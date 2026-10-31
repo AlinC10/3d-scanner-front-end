@@ -66,7 +66,13 @@
                     
                     <div class="scan-progress-wrapper scrollable-panel" style="width: 420px; padding: 32px; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow-y: auto;">
                         <h1 class="scan-title" id="scan-status-title" style="text-align: center; margin-bottom: 5px;">Status: Preparing...</h1>
-                        <div id="scan-phase-message" style="color: var(--text-muted); font-size: 0.95rem; text-align: center; min-height: 20px; margin-bottom: 24px;"></div>
+                        <div id="scan-phase-message" style="color: var(--text-muted); font-size: 0.95rem; text-align: center; min-height: 20px; margin-bottom: 8px; white-space: pre-line;"></div>
+                        <!-- cloud_message: technical detail of the cloud processing, small, under the main text -->
+                        <div id="scan-cloud-message" style="display: none; color: var(--text-muted); opacity: 0.7; font-family: var(--font-mono); font-size: 0.75rem; text-align: center; margin-bottom: 24px; word-break: break-word;"></div>
+                        <!-- upload stalled (seconds_since_last_upload) / server not answering: filled from JS -->
+                        <div id="scan-upload-warning" style="display: none; color: #f59e0b; font-size: 0.85rem; text-align: center; margin-bottom: 12px;"></div>
+                        <div id="scan-conn-warning" style="display: none; color: #ef4444; font-size: 0.85rem; text-align: center; margin-bottom: 12px;"></div>
+                        <div style="margin-bottom: 16px;"></div>
 
                         <!-- Grup Progress Bar (Apare automat după auto-start) -->
                         <div id="scan-progress-container" style="display: none; width: 100%; margin-bottom: 24px;">
@@ -105,6 +111,11 @@
                                 </svg>
                                 <span id="switch-cam-text">Switch Camera (Cam 1)</span>
                             </button>
+
+                            <!-- POST /scanner/cloud/retry: shown after an object scan failed (hidden again on a 400) -->
+                            <button class="btn-primary" id="btn-retry-cloud" style="display: none; width: 100%; justify-content: center; padding: 12px; min-height: 50px;">↻ Retry reconstruction</button>
+                            <!-- face scan: eyes probably closed or no face found -> a new prepare + capture -->
+                            <button class="btn-primary" id="btn-retake-face" style="display: none; width: 100%; justify-content: center; padding: 12px; min-height: 50px;">📷 Take the photo again</button>
 
                             <button class="btn-secondary" id="btn-cancel-scan" style="width: 100%; justify-content: center; border-color: #ef4444; color: #ef4444; padding: 12px; cursor: pointer;">
                                 Cancel Scan

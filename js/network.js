@@ -67,6 +67,61 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>`;
     }
 
+    // --- USB STICK (GET /system/status "usb", POST /library/usb/eject) ---
+    // Header icon shown while a stick is plugged in; a tap ejects it. Disabled while an export writes to it.
+    let usbIcon = null;
+    let usbSafe = false;
+    let usbEjecting = false;
+
+    function ensureUsbIcon() {
+        if (usbIcon) return usbIcon;
+        const bar = document.querySelector('header .system-status');
+        if (!bar) return null;
+        usbIcon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        usbIcon.setAttribute('viewBox', '0 0 24 24');
+        usbIcon.setAttribute('class', 'status-icon');
+        usbIcon.id = 'icon-usb';
+        usbIcon.style.display = 'none';
+        usbIcon.style.cursor = 'pointer';
+        // a stick with an "eject" arrow on it
+        usbIcon.innerHTML = '<title>USB stick</title><rect x="7" y="9" width="10" height="13" rx="2"></rect><path d="M9 9V3h6v6"></path><polyline points="9.5 17 12 14.5 14.5 17"></polyline>';
+        usbIcon.addEventListener('click', ejectUsb);
+        bar.insertBefore(usbIcon, document.getElementById('icon-settings'));
+        return usbIcon;
+    }
+
+    function renderUsbIcon(usb) {
+        const icon = ensureUsbIcon();
+        if (!icon) return;
+        const connected = !!(usb && !usb.error && usb.connected);
+        usbSafe = connected && usb.safe_to_remove === true;
+        icon.style.display = connected ? 'block' : 'none';
+        icon.style.opacity = usbSafe && !usbEjecting ? '1' : '0.35';
+        const title = icon.querySelector('title');
+        if (title) title.textContent = usbSafe ? 'USB stick: tap to eject' : 'USB stick: export in progress, wait before ejecting';
+    }
+
+    async function ejectUsb(e) {
+        e.stopPropagation();
+        if (!usbSafe || usbEjecting) return;
+        if (!(await window.uiConfirm('Eject the USB stick?', { title: 'USB stick', okText: 'Eject' }))) return;
+        usbEjecting = true;
+        if (usbIcon) usbIcon.style.opacity = '0.35';
+        try {
+            const res = await fetch(`${API_URL}/library/usb/eject`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}'
+            });
+            if (!res.ok) throw new Error(await window.apiError(res));
+            const data = await res.json();
+            window.uiAlert(data.safe_to_remove ? 'You can remove the USB stick.' : 'The stick was unmounted.');
+        } catch (err) {
+            window.uiAlert(`Could not eject the USB stick: ${err.message}`);
+        } finally {
+            usbEjecting = false;
+            checkGlobalNetworkState();
+        }
+    }
+
     // --- NOU: VERIFICARE STATUS GLOBAL (Sursa unică de adevăr) ---
     // Conform "GET /system/status NEW" - Polled every 5-15s
     async function checkGlobalNetworkState() {
@@ -109,6 +164,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         currentConnectedSSID = null;
                     }
                 }
+
+                // USB stick: icon + "Eject" from the same poll (no extra request)
+                renderUsbIcon(sysData.usb);
 
                 // 3. Verificare BLUETOOTH
                 if (sysData.bluetooth) {
@@ -156,7 +214,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- WIFI TOGGLE & SCAN (Cu protecție 409) ---
     if(toggleWifiPower) {
         toggleWifiPower.addEventListener('click', async function() {
-            if (isScannerBusy) { alert("Network actions are disabled during an active scan."); return; }
+            if (isScannerBusy) { window.uiAlert("Network actions are disabled during an active scan."); return; }
 
             isWifiPowerOn = !isWifiPowerOn;
             if(isWifiPowerOn) {
@@ -178,7 +236,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if(toggleBtPower) {
         toggleBtPower.addEventListener('click', async function() {
-            if (isScannerBusy) { alert("Network actions are disabled during an active scan."); return; }
+            if (isScannerBusy) { window.uiAlert("Network actions are disabled during an active scan."); return; }
 
             isBtPowerOn = !isBtPowerOn;
             this.classList.toggle('active', isBtPowerOn);
@@ -188,7 +246,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch(e) {
                 isBtPowerOn = !isBtPowerOn;
                 this.classList.toggle('active', isBtPowerOn);
-                alert(`Bluetooth: ${e.message}`);
+                window.uiAlert(`Bluetooth: ${e.message}`);
             }
             if (isBtPowerOn) loadBluetoothDevices();
             else renderDisabledState('bt-list', 'Bluetooth Disabled', 'Turn on Bluetooth to connect to nearby devices.');
@@ -241,7 +299,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const entry = saved.find(n => n.ssid === ssid);
         if (!entry) return;
         const res = await fetch(`${API_URL}/system/wifi/saved/${encodeURIComponent(entry.name)}`, { method: 'DELETE' });
-        if (!res.ok && res.status !== 204) alert(await window.apiError(res));
+        if (!res.ok && res.status !== 204) window.uiAlert(await window.apiError(res));
     }
 
     // --- LOAD WIFI NETWORKS ---
@@ -326,13 +384,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 const actionBtn = item.querySelector('.action-btn');
                 actionBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    if (isScannerBusy) { alert("Action blocked during scan (409)."); return; }
+                    if (isScannerBusy) { window.uiAlert("Action blocked during scan (409)."); return; }
                     toggleWiFiConnection(item, net.ssid, isSecure, isConnected, net.saved, actionBtn, null, net.security || '');
                 });
                 const forgetBtn = item.querySelector('.forget-btn');
                 if (forgetBtn) forgetBtn.addEventListener('click', async (e) => {
                     e.stopPropagation();
-                    if (isScannerBusy) { alert("Action blocked during scan (409)."); return; }
+                    if (isScannerBusy) { window.uiAlert("Action blocked during scan (409)."); return; }
                     forgetBtn.innerText = '...';
                     try { await forgetNetwork(net.ssid); } catch(err) {}
                     loadWiFiNetworks(false);
@@ -368,14 +426,14 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Dacă NU e salvată și E securizată, cerem parolă (401 o va cere oricum, dar o cerem proactiv)
         if (knownPassword === null && !isSaved && isSecure) {
-            password = prompt(`Enter password for ${ssid}:`); 
+            password = await window.uiPrompt(`Enter the password for ${ssid}:`, '', { title: 'Wi-Fi password', password: true, okText: 'Connect' });
             if (password === null) return; 
         }
 
         // 802.1X (enterprise) networks also need a user name
         let identity = null;
         if (!isSaved && /802\.1X|EAP/i.test(security)) {
-            identity = prompt(`Enter the user name for ${ssid}:`);
+            identity = await window.uiPrompt(`Enter the user name for ${ssid}:`, '', { title: 'Wi-Fi user name' });
             if (identity === null) return;
         }
 
@@ -401,7 +459,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 btnElement.disabled = false;
                 
                 // Opțional, redeschidem promptul automat
-                let retryPwd = prompt(`Incorrect password. Enter new password for ${ssid}:`);
+                let retryPwd = await window.uiPrompt(`Wrong password. Enter the password for ${ssid} again:`, '', { title: 'Wi-Fi password', password: true, okText: 'Connect' });
                 if (retryPwd !== null) {
                     toggleWiFiConnection(element, ssid, true, false, false, btnElement, retryPwd, security);
                 }
@@ -469,7 +527,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const actionBtn = item.querySelector('.action-btn');
                 actionBtn.addEventListener('click', async (e) => {
                     e.stopPropagation();
-                    if (isScannerBusy) { alert("Action blocked during scan (409)."); return; }
+                    if (isScannerBusy) { window.uiAlert("Action blocked during scan (409)."); return; }
                     
                     if (isConnected) {
                         actionBtn.innerText = '...';
@@ -477,7 +535,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             const res = await fetch(`${API_URL}/system/bluetooth/disconnect`, {
                                 method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mac_address: dev.mac_address })
                             });
-                            if (!res.ok) alert(await window.apiError(res));
+                            if (!res.ok) window.uiAlert(await window.apiError(res));
                         } catch(err){}
                         loadBluetoothDevices(); 
                         return;
@@ -489,7 +547,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const res = await fetch(`${API_URL}/system/bluetooth/connect`, {
                             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mac_address: dev.mac_address })
                         });
-                        if (!res.ok) alert(await window.apiError(res));
+                        if (!res.ok) window.uiAlert(await window.apiError(res));
                         loadBluetoothDevices(); 
                     } catch(err) {
                         item.querySelector('small').innerText = "Failed";

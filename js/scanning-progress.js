@@ -19,6 +19,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const statusTitle = document.getElementById('scan-status-title');
     const phaseMessage = document.getElementById('scan-phase-message');
+    const cloudMessage = document.getElementById('scan-cloud-message');
+    const btnRetryCloud = document.getElementById('btn-retry-cloud');
+    const btnRetakeFace = document.getElementById('btn-retake-face');
+    const uploadWarning = document.getElementById('scan-upload-warning');
+    const connWarning = document.getElementById('scan-conn-warning');
+
+    const UPLOAD_WARN_BEFORE_S = 60;   // warn this long before the upload drain timeout fails the run
+    const CONN_LOST_AFTER = 3;         // failed status requests in a row (~3 s) before "connection lost"
+    let statusFailures = 0;
+    let scanEnded = false;             // error / completed: the red button only leads back to the menu
     const scanStream = document.getElementById('active-scan-stream');
     
     const inputGroup = document.getElementById('scan-input-group'); 
@@ -111,6 +121,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 2. CANCEL ACTION ---
     async function triggerCancel() {
+        if (scanEnded) {                    // nothing runs any more: no emergency stop, just leave
+            markScanSeen();
+            window.location.href = 'index.html';
+            return;
+        }
         if (statusInterval) clearInterval(statusInterval);
         clearTimeout(retryTimer);
         if (statusTitle) statusTitle.innerText = "Canceling...";
@@ -200,8 +215,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // --- 5. POLLING PENTRU STATUS ---
-    function initStatusPolling() {
-        if (statusTitle) {
+    function initStatusPolling(keepTitle = false) {
+        if (statusTitle && !keepTitle) {
             statusTitle.innerText = scanMode === 'face'
                 ? "Status: Warming up (Face Mode)..."
                 : "Status: Warming up (Object Mode)...";
@@ -209,9 +224,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         statusInterval = setInterval(async () => {
             try {
-                const res = await fetch(`${API_URL}/scanner/status`);
-                if (res.ok) {
+                const res = await fetch(`${API_URL}/scanner/status`, { cache: 'no-store' });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                {
                     const data = await res.json();
+                    // answered again: a single missed request never shows the warning
+                    statusFailures = 0;
+                    if (connWarning) connWarning.style.display = 'none';
                     
                     // Indiferent că e trimis ca 'PREPARED', 'Prepared' sau 'prepared', îl normalizăm
                     const rawState = data.state || '';
@@ -232,6 +251,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (data.phase_message && phaseMessage && !statusTitle.innerText.includes("Rejected")) {
                         phaseMessage.innerText = data.phase_message;
                     }
+
+                    // cloud_message: detail line of the cloud processing (null outside of it)
+                    if (cloudMessage) {
+                        cloudMessage.innerText = data.cloud_message || '';
+                        cloudMessage.style.display = data.cloud_message ? 'block' : 'none';
+                    }
+                    updateUploadWarning(data, currentState);
 
                     // 👉 5.1 PREPARED TRIGGER - Instant FĂRĂ delay!
                     if (currentState === 'prepared' && !hasSentStartCommand) {
@@ -272,6 +298,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (finalStates.includes(currentState)) {
                         clearInterval(statusInterval);
                         stopStreamView();
+                        if (cloudMessage) cloudMessage.style.display = 'none';
+                        if (uploadWarning) uploadWarning.style.display = 'none';
+                        if (currentState !== 'cancelled') {
+                            scanEnded = true;
+                            btnCancel.innerText = 'Back to menu';
+                            btnCancel.style.borderColor = 'var(--neutral-border)';
+                            btnCancel.style.color = 'var(--text-main)';
+                        }
 
                         if (currentState === "error") {
                             if (statusTitle) {
@@ -279,6 +313,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                 statusTitle.style.color = "#ef4444";
                             }
                             phaseMessage.innerText = "Please check the scanner and try again.";
+                            if (data.missing && data.missing.length) phaseMessage.innerText += `\n${data.missing.length} photo(s) missing in the cloud`;
+                            // an object scan that failed in the cloud step can be rebuilt from the uploaded photos
+                            if (btnRetryCloud && (data.mode || scanMode) === 'object') btnRetryCloud.style.display = 'flex';
                         } 
                         else if (currentState === "cancelled") {
                             if (statusTitle) {
@@ -295,7 +332,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             phaseMessage.innerText = "Please name your scan before viewing it.";
                             
                             progressContainer.style.display = 'none';
-                            btnCancel.style.display = 'none';
+                            btnCancel.style.display = 'none';   // the name form has its own buttons
                             
                             if (scanMode === 'face' && data.face_result) {
                                 libraryResultId = data.face_result.result_id;
@@ -311,6 +348,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                 if (m && m.dimensions_mm) bits.push(`Face ${Math.round(m.dimensions_mm.width)} × ${Math.round(m.dimensions_mm.height)} mm`);
                                 if (m && m.interpupillary_distance_mm) bits.push(`IPD ${m.interpupillary_distance_mm.toFixed(1)} mm`);
                                 if (bits.length) phaseMessage.innerText = bits.join('\n');
+                                // eyes_open: 0 closed .. 1 open, null not checked; below 0.5 the server also sends a warning
+                                const eyesClosed = typeof fr.eyes_open === 'number' && fr.eyes_open < 0.5;
+                                if (btnRetakeFace && (eyesClosed || fr.face_detected === false)) btnRetakeFace.style.display = 'flex';
                             }
                             if (data.missing && data.missing.length) phaseMessage.innerText += `\n${data.missing.length} photo(s) missing in the cloud`;
 
@@ -340,9 +380,67 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } catch (e) {
                 console.warn("Polling error:", e);
+                // keep polling: the warning goes away by itself as soon as the server answers
+                if (++statusFailures >= CONN_LOST_AFTER && connWarning) {
+                    connWarning.innerText = '⚠ Connection to the scanner lost. Reconnecting...';
+                    connWarning.style.display = 'block';
+                }
             }
         }, 1000); // Scăzut de la 1500ms la 1000ms pentru a prinde și mai repede starea PREPARED
     }
+
+    // The run fails after upload_drain_timeout_s without a successful upload: warn during the last minute,
+    // only while photos are still waiting to be uploaded
+    function updateUploadWarning(data, state) {
+        if (!uploadWarning) return;
+        const since = data.seconds_since_last_upload;
+        const limit = data.upload_drain_timeout_s;
+        const pending = (data.photos_captured || 0) > (data.photos_uploaded || 0);
+        const left = (typeof since === 'number' && typeof limit === 'number') ? limit - since : Infinity;
+        if (state === 'running' && pending && left <= UPLOAD_WARN_BEFORE_S) {
+            uploadWarning.innerText = left > 0
+                ? `⚠ No photo uploaded for ${Math.round(since)} s. The scan fails in ${Math.ceil(left)} s unless the upload resumes. Check the network cable.`
+                : '⚠ No photo uploaded for too long: the scan is about to fail.';
+            uploadWarning.style.display = 'block';
+        } else {
+            uploadWarning.style.display = 'none';
+        }
+    }
+
+    // --- 6. RETRY THE CLOUD RECONSTRUCTION (POST /scanner/cloud/retry) ---
+    if (btnRetryCloud) btnRetryCloud.addEventListener('click', async () => {
+        btnRetryCloud.disabled = true;
+        try {
+            const res = await fetch(`${API_URL}/scanner/cloud/retry`, { method: 'POST' });
+            if (res.status === 400) {           // nothing to retry: hide the button for good
+                btnRetryCloud.style.display = 'none';
+                phaseMessage.innerText = await window.apiError(res);
+                return;
+            }
+            if (!res.ok) throw new Error(await window.apiError(res));
+            btnRetryCloud.style.display = 'none';
+            statusTitle.style.color = '';
+            statusTitle.innerText = 'Status: Processing';
+            const data = await res.json().catch(() => ({}));
+            phaseMessage.innerText = data.message || 'Retrying the reconstruction...';
+            hasSentStartCommand = true;         // follow the run, never send start again
+            scanEnded = false;
+            btnCancel.innerText = 'Cancel Scan';
+            btnCancel.style.borderColor = '#ef4444';
+            btnCancel.style.color = '#ef4444';
+            initStatusPolling(true);
+        } catch (e) {
+            phaseMessage.innerText = `Could not retry: ${e.message}`;
+        } finally {
+            btnRetryCloud.disabled = false;
+        }
+    });
+
+    // each face capture needs its own prepare: back to the face preparation page
+    if (btnRetakeFace) btnRetakeFace.addEventListener('click', () => {
+        markScanSeen();
+        window.location.href = 'scan-face.html';
+    });
 
     initStatusPolling();
 });

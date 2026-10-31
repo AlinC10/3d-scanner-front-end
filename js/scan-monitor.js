@@ -3,6 +3,8 @@
 // current state and leads back to it.
 (function () {
     if (document.getElementById('active-scan-stream')) return; // we are on the scanning page
+    if (window.__scanMonitorLoaded) return;                    // never two cards
+    window.__scanMonitorLoaded = true;
 
     const API_URL = window.location.origin.includes(':') && !window.location.origin.includes(':8000')
                     ? `http://${window.location.hostname}:8000`
@@ -21,7 +23,7 @@
 
     const style = document.createElement('style');
     style.textContent = `
-        #scan-monitor { position: fixed; right: 24px; bottom: 24px; width: 320px; z-index: 900; display: none;
+        #scan-monitor { position: fixed; right: 24px; bottom: 24px; width: 320px; z-index: 2147483000; display: none;
             background: var(--bg-secondary); border: 1px solid var(--accent); border-radius: 12px; padding: 14px 16px;
             color: var(--text-main); cursor: pointer; box-shadow: 0 6px 24px rgba(0,0,0,0.35); font-family: var(--font-main); }
         #scan-monitor .sm-head { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 0.95rem; }
@@ -113,7 +115,7 @@
             elMsg.innerText = data.error || 'Tap for details';
         } else {
             elTitle.innerText = `${label} in progress`;
-            elMsg.innerText = readable(data);
+            elMsg.innerText = state === 'prepared' ? 'Ready: tap to continue the scan' : readable(data);
         }
 
         const showBar = state === 'running' && data.total_photos > 0;
@@ -126,15 +128,19 @@
 
     async function poll() {
         try {
-            const res = await fetch(`${API_URL}/scanner/status`);
+            const res = await fetch(`${API_URL}/scanner/status`, { cache: 'no-store' });
             if (!res.ok) throw new Error(res.status);
             failures = 0;
             render(await res.json());
         } catch (e) {
-            if (++failures >= 3) box.style.display = 'none';
+            console.warn('scan-monitor: status request failed', e);
+            if (++failures >= 5) box.style.display = 'none';
         }
     }
 
     poll();
     setInterval(poll, 2000);
+    // coming back to the page (history Back, tab shown again): do not wait for the next tick
+    window.addEventListener('pageshow', poll);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
 })();

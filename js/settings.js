@@ -30,6 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ['Scanner', 'POST', '/scanner/start', {job_id: null, mechanical: {turntable: {angle: 18.0, delay: 0.001, acceleration: true, ramp_percent: 0.4, decel_percent: 0.5, end_delay: 0.015}, z_axis: {distance_mm: 80.0, delay: 0.001, acceleration: false}}, cloud: {launch_runpod: true, resolution_level: 1, title: null}}],
         ['Scanner', 'POST', '/scanner/face/prepare', {enable_stream: true, illumination_brightness: 0.35, start_z_mm: 144.0, upload_r2: false, z_delay: 0.001, camera_config: {focus: 'auto'}}],
         ['Scanner', 'POST', '/scanner/face/capture', {strategy: 'direct_stop', search_range_mm: 48.0, step_mm: 8.0, manual_z: null, settle_s: 0.15, z_delay: null, title: null, reconstruct: true}],
+        ['Scanner', 'POST', '/scanner/cloud/retry', null],
         ['Scanner', 'POST', '/scanner/cancel', null],
         ['Scanner', 'POST', '/scanner/stream/active?camera_id=2', null],
         ['Scanner', 'POST', '/scanner/stream/quality?quality=75', null],
@@ -37,9 +38,11 @@ document.addEventListener('DOMContentLoaded', () => {
         ['Library', 'GET',   '/library/objects?offset=0&limit=20', null],
         ['Library', 'GET',   '/library/objects/{id}', null],
         ['Library', 'PATCH', '/library/objects/{id}', {title: 'Vase', description: ''}],
+        ['Library', 'DELETE', '/library/objects/{id}', null],
         ['Library', 'GET',   '/library/usb', null],
         ['Library', 'POST',  '/library/objects/{id}/export/usb', null],
         ['Library', 'GET',   '/library/export/usb/status', null],
+        ['Library', 'POST',  '/library/usb/eject', {}],
         ['Library', 'POST',  '/library/objects/{id}/export/bluetooth', null],
         ['Library', 'GET',   '/library/export/bluetooth/status', null],
         ['Library', 'POST',  '/library/export/bluetooth/cancel', null],
@@ -79,6 +82,9 @@ document.addEventListener('DOMContentLoaded', () => {
         ['Test', 'POST', '/test/stream/quality?quality=75', null],
         ['Test', 'GET',  '/test/stream/sync-status', null],
         ['Test', 'POST', '/test/camera/snap', null],
+        ['Test', 'GET',  '/test/buzzer', null],
+        ['Test', 'POST', '/test/buzzer/play', {pattern: 'success'}],
+        ['Test', 'POST', '/test/buzzer/tone', {frequency_hz: 880, duration_s: 0.5}],
         ['Test', 'POST', '/test/cleanup', null],
         ['Test', 'POST', '/test/cloud/runpod-dry-run', null]
     ];
@@ -201,6 +207,11 @@ document.addEventListener('DOMContentLoaded', () => {
             {title: 'Preview quality', method: 'POST', path: '/test/stream/quality', fields: [num('quality', 'JPEG quality', 75, 1, 100, 1, 'query')]},
             {title: 'Sync status', method: 'GET', path: '/test/stream/sync-status'},
             {title: 'Take 2 photos', method: 'POST', path: '/test/camera/snap'}
+        ]],
+        ['Buzzer', [
+            {title: 'Buzzer status', method: 'GET', path: '/test/buzzer'},
+            {title: 'Play a pattern', method: 'POST', path: '/test/buzzer/play', fields: [sel('pattern', 'Pattern', ['ready', 'start', 'hold_still', 'photo_countdown', 'success', 'error'])]},
+            {title: 'Play a tone', method: 'POST', path: '/test/buzzer/tone', fields: [num('frequency_hz', 'Frequency (Hz)', 880, 110, 1760, 1), num('duration_s', 'Duration (s)', 0.5, 0.1, 5, 0.1)]}
         ]],
         ['Maintenance & cloud', [
             {title: 'Cleanup (stop everything)', method: 'POST', path: '/test/cleanup'},
@@ -337,7 +348,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 lightsOn = !lightsOn;
                 if(lightsOn) toggleManualLights.classList.add('active');
                 else toggleManualLights.classList.remove('active');
-                alert("Failed to communicate with the hardware to toggle lights.");
+                window.uiAlert("Failed to communicate with the hardware to toggle lights.");
             }
         });
 
@@ -345,7 +356,7 @@ document.addEventListener('DOMContentLoaded', () => {
         lightsSlider.addEventListener('change', () => {
             if (lightsOn) {
                 sendLightsRequest().catch(() => {
-                    alert("Failed to apply new brightness.");
+                    window.uiAlert("Failed to apply new brightness.");
                 });
             }
         });
@@ -380,7 +391,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnReboot = document.getElementById('btn-system-reboot');
     if (btnReboot) {
         btnReboot.addEventListener('click', async () => {
-            if (confirm("Are you sure you want to reboot the scanner?")) {
+            if (await window.uiConfirm("Are you sure you want to reboot the scanner?", { title: 'Reboot', okText: 'Reboot', danger: true })) {
                 try {
                     // Apelăm endpoint-ul specificat în imagine: GET /system/reboot
                     await fetch(`${API_URL}/system/reboot`, { 
@@ -402,7 +413,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 } catch (error) {
                     console.error("Reboot error:", error);
-                    alert("Failed to initiate reboot command.");
+                    window.uiAlert("Failed to initiate reboot command.");
                 }
             }
         });

@@ -151,7 +151,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (response.ok || response.status === 202) {
                 window.location.href = `scanning.html?mode=${mode}`;
             } else {
-                alert(`Scanner refused the request:\n${await window.apiError(response)}`);
+                window.uiAlert(`Scanner refused the request:\n${await window.apiError(response)}`);
                 
                 const btnObjPrep = document.getElementById('btn-start-obj-prep');
                 if (btnObjPrep) btnObjPrep.innerText = "▶ Prepare Scan";
@@ -159,7 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (btnFacePrep) btnFacePrep.innerText = "▶ Prepare Face Scan";
             }
         } catch (error) {
-            alert("Error calling prepare endpoint. Is the backend running?");
+            window.uiAlert("Error calling prepare endpoint. Is the backend running?");
             const btnObjPrep = document.getElementById('btn-start-obj-prep');
             if (btnObjPrep) btnObjPrep.innerText = "▶ Prepare Scan";
             const btnFacePrep = document.getElementById('btn-start-face-prep');
@@ -177,10 +177,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const cable = sys.ethernet && sys.ethernet.connected;
             const wifi = sys.wifi && sys.wifi.connected;
             if (!cable && !wifi) {
-                return confirm("The scanner is not connected to any network, so the photos cannot be uploaded and the scan will fail.\n\nStart anyway?");
+                return window.uiConfirm("The scanner is not connected to any network, so the photos cannot be uploaded and the scan will fail.\n\nStart anyway?");
             }
             if (!cable) {
-                return confirm("The scanner is connected by Wi-Fi only. Network settings are locked during a scan, and if the Wi-Fi drops the scan is lost.\n\nPlug in the Ethernet cable if you can. Start anyway?");
+                return window.uiConfirm("The scanner is connected by Wi-Fi only. Network settings are locked during a scan, and if the Wi-Fi drops the scan is lost.\n\nPlug in the Ethernet cable if you can. Start anyway?");
             }
         } catch (e) {}
         return true;

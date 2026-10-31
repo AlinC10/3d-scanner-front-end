@@ -10,6 +10,20 @@
   flex: 1; 
 }
 
+/* Inside the scrolling column the boxes must keep their height (a flex child would shrink and be cut at the
+   bottom), and the last element needs room below it: a spacer, since a scroll container's padding-bottom is
+   not always kept under its last flex child. */
+.settings-panel > * {
+  flex-shrink: 0;
+}
+
+.settings-panel::after {
+  content: "";
+  display: block;
+  flex-shrink: 0;
+  height: 8px;
+}
+
 .setting-row-box { 
   display: flex; 
   justify-content: space-between; 

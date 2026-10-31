@@ -107,7 +107,7 @@ header {
 .system-status {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 8px; /* the icons carry their own 6px padding: same look as a 20px gap */
   font-family: var(--font-mono);
   font-size: 0.9rem;
   color: var(--text-muted);
@@ -115,8 +115,12 @@ header {
 
 /* AICI S-A FĂCUT REPARAȚIA PENTRU ROTIȚA DINȚATĂ */
 .status-icon {
-  width: 24px;
-  height: 24px;
+  /* 24px drawing inside a 36px touch target */
+  width: 36px;
+  height: 36px;
+  padding: 6px;
+  box-sizing: border-box;
+  flex-shrink: 0;
   cursor: pointer;
   overflow: visible;
   transition:
