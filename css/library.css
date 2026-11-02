@@ -193,6 +193,24 @@
     background: var(--accent) !important;
 }
 
+#btn-export-qr {
+    background: var(--bg-secondary) !important;
+    border: 1px solid var(--neutral-border) !important;
+    color: var(--text-main) !important;
+}
+
+#btn-export-qr:hover {
+    background: var(--bg-hover) !important;
+    border-color: var(--accent) !important;
+}
+
+#btn-show-qr {
+    padding: 14px !important;
+    background: transparent !important;
+    border: 1px dashed var(--accent) !important;
+    color: var(--accent) !important;
+}
+
 .btn-delete {
     padding: 16px !important; 
     font-size: 1.05rem !important; 

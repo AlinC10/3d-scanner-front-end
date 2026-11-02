@@ -77,44 +77,43 @@ document.addEventListener('DOMContentLoaded', () => {
     syncSlider('cfg-face-focus-cam2');
 
     // --- TOGGLE STREAM RUNPOD (Streaming Pod) ---
-    const toggleStreamPod = document.getElementById('toggle-stream-pod');
-    if (toggleStreamPod) {
-        toggleStreamPod.addEventListener('click', function() {
-            this.classList.toggle('active');
-        });
-    }
-
     // --- FOCUS MODE TOGGLES (Object & Face) ---
-    const focusObjMode = document.getElementById('cfg-obj-focus-mode');
-    const boxObjFocusVal = document.getElementById('box-obj-focus-val');
-    const boxObjFocusTuple = document.getElementById('box-obj-focus-tuple');
-    if (focusObjMode) {
-        focusObjMode.addEventListener('change', (e) => {
-            const v = e.target.value;
-            if (boxObjFocusVal) boxObjFocusVal.style.display = v === 'custom' ? 'flex' : 'none';
-            if (boxObjFocusTuple) boxObjFocusTuple.style.display = v === 'tuple' ? 'flex' : 'none';
-        });
+    function updateFocusUI(prefix) {
+        const sel = document.getElementById(`${prefix}-focus-mode`);
+        const boxVal = document.getElementById(`box-${prefix.replace('cfg-', '')}-focus-val`);
+        const boxTuple = document.getElementById(`box-${prefix.replace('cfg-', '')}-focus-tuple`);
+        const summary = document.getElementById(`${prefix}-focus-summary`);
+        if (!sel) return;
+        const v = sel.value;
+        const isSingle = (v === 'manual_single' || v === 'custom');
+        const isTuple = (v === 'manual_tuple' || v === 'tuple');
+        if (boxVal) boxVal.style.display = isSingle ? 'flex' : 'none';
+        if (boxTuple) boxTuple.style.display = isTuple ? 'flex' : 'none';
+        if (summary) {
+            if (v === 'auto') summary.innerText = 'Auto';
+            else if (v === 'none') summary.innerText = 'None';
+            else if (isSingle) summary.innerText = 'Manual (Single)';
+            else if (isTuple) summary.innerText = 'Manual (Per-Cam)';
+        }
     }
 
-    const focusFaceMode = document.getElementById('cfg-face-focus-mode');
-    const boxFaceFocusVal = document.getElementById('box-face-focus-val');
-    const boxFaceFocusTuple = document.getElementById('box-face-focus-tuple');
-    if (focusFaceMode) {
-        focusFaceMode.addEventListener('change', (e) => {
-            const v = e.target.value;
-            if (boxFaceFocusVal) boxFaceFocusVal.style.display = v === 'custom' ? 'flex' : 'none';
-            if (boxFaceFocusTuple) boxFaceFocusTuple.style.display = v === 'tuple' ? 'flex' : 'none';
-        });
-    }
+    ['cfg-obj', 'cfg-face'].forEach(prefix => {
+        const sel = document.getElementById(`${prefix}-focus-mode`);
+        if (sel) {
+            sel.addEventListener('change', () => updateFocusUI(prefix));
+            sel.addEventListener('input', () => updateFocusUI(prefix));
+            updateFocusUI(prefix);
+        }
+    });
 
     function getFocusParam(prefix) {
         const mode = document.getElementById(`${prefix}-focus-mode`)?.value || 'auto';
         if (mode === 'none') return null;
-        if (mode === 'custom') {
+        if (mode === 'manual_single' || mode === 'custom') {
             const raw = parseInt(document.getElementById(`${prefix}-focus-val`)?.value || '512', 10);
             return isNaN(raw) ? 512 : Math.max(0, Math.min(1023, raw));
         }
-        if (mode === 'tuple') {
+        if (mode === 'manual_tuple' || mode === 'tuple') {
             const c1 = parseInt(document.getElementById(`${prefix}-focus-cam1`)?.value || '512', 10);
             const c2 = parseInt(document.getElementById(`${prefix}-focus-cam2`)?.value || '512', 10);
             const val1 = isNaN(c1) ? 512 : Math.max(0, Math.min(1023, c1));
@@ -154,13 +153,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (objRes) objRes.value = '960x720';
 
             setSliderValue('cfg-adv-led', 100, '%');
-            if (toggleStreamPod) toggleStreamPod.classList.add('active');
+            const focusObjMode = document.getElementById('cfg-obj-focus-mode');
             if (focusObjMode) focusObjMode.value = 'auto';
-            if (boxObjFocusVal) boxObjFocusVal.style.display = 'none';
-            if (boxObjFocusTuple) boxObjFocusTuple.style.display = 'none';
             setSliderValue('cfg-obj-focus-val', 512);
             setSliderValue('cfg-obj-focus-cam1', 512);
             setSliderValue('cfg-obj-focus-cam2', 512);
+            updateFocusUI('cfg-obj');
         });
     }
 
@@ -181,12 +179,12 @@ document.addEventListener('DOMContentLoaded', () => {
             setSliderValue('cfg-face-search-range', 48);
             setSliderValue('cfg-face-step', 8);
             setSliderValue('cfg-face-manual-z', 200);
+            const focusFaceMode = document.getElementById('cfg-face-focus-mode');
             if (focusFaceMode) focusFaceMode.value = 'auto';
-            if (boxFaceFocusVal) boxFaceFocusVal.style.display = 'none';
-            if (boxFaceFocusTuple) boxFaceFocusTuple.style.display = 'none';
             setSliderValue('cfg-face-focus-val', 512);
             setSliderValue('cfg-face-focus-cam1', 512);
             setSliderValue('cfg-face-focus-cam2', 512);
+            updateFocusUI('cfg-face');
         });
     }
 
@@ -284,7 +282,6 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             const turntableAngle = parseFloat(document.getElementById('cfg-obj-turntable')?.value || 18.0); 
-            const streamPod = toggleStreamPod ? toggleStreamPod.classList.contains('active') : true;
 
             // PAYLOAD 2: Ce vom trimite la /scanner/start de pe pagina de progres
             const startPayload = {
@@ -309,7 +306,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     "launch_runpod": true,
                     "resolution_level": 1,
                     "title": readTitle('cfg-obj-title'),
-                    "start_pod_with_scan": streamPod
+                    "start_pod_with_scan": true
                 }
             };
             savePendingDetails('cfg-obj-title', 'cfg-obj-desc');

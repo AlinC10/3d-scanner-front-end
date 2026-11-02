@@ -54,20 +54,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (btnBack) {
         btnBack.addEventListener('click', () => {
-            detailView.style.display = 'none';
-            gridView.style.display = 'flex';
             stopExportPolling();
-            showExportStatus('');
-            showExportProgress(null);
-            if (btnShowQr) btnShowQr.style.display = 'none';
-            if (libraryDirty) { libraryDirty = false; loadLibrary(currentPage); }
-            if (mainModelObject && mainScene) {
-                mainScene.remove(mainModelObject);
-                mainModelObject = null;
-            }
-            // pause the viewer while the grid is shown; loadMain3DModel starts it again
-            if (mainAnimationFrameId) cancelAnimationFrame(mainAnimationFrameId);
-            mainAnimationFrameId = null;
+            window.location.href = 'library.html';
         });
     }
 

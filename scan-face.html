@@ -2,6 +2,9 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <meta name="viewport" content="width=1366, height=768, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>SCANCORE-3D OS - Face Scan</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -113,6 +116,52 @@
 
                         <div id="advanced-settings-container-face" style="display: none; flex-direction: column; gap: 16px; padding-bottom: 16px;">
                             <div class="settings-grid">
+                                <!-- Focus Mode (Prominent at top of Advanced Settings) -->
+                                <div class="setting-row-box" style="padding: 16px; flex-direction: column; align-items: flex-start; gap:12px; grid-column: span 2;">
+                                    <div style="display:flex; justify-content: space-between; align-items: center; width: 100%;">
+                                        <label class="setting-row-title" style="margin: 0;">Focus Mode</label>
+                                        <span id="cfg-face-focus-summary" style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-muted);">Auto</span>
+                                    </div>
+                                    <select id="cfg-face-focus-mode" style="width:100%; padding: 10px; border-radius: 6px; background: var(--bg-primary); color: var(--text-main); border: 1px solid var(--neutral-border); font-size: 0.95rem;">
+                                        <option value="auto" selected>Auto (Autofocus on face)</option>
+                                        <option value="none">None (Last saved position)</option>
+                                        <option value="manual_single">Manual (Both Cameras: 0 - 1023)</option>
+                                        <option value="manual_tuple">Manual (Per-Camera: [Cam 1, Cam 2])</option>
+                                    </select>
+
+                                    <!-- Single slider (Both Cameras) -->
+                                    <div id="box-face-focus-val" style="width: 100%; display: none; flex-direction: column; gap: 8px; padding-top: 10px; border-top: 1px solid var(--neutral-border);">
+                                        <div style="display:flex; justify-content: space-between; width: 100%;">
+                                            <label class="setting-row-title" style="font-size: 0.95rem; margin: 0;">Focus Value (0 - 1023)</label>
+                                            <span id="cfg-face-focus-val-val" style="font-family: var(--font-mono); font-weight: 600; color: var(--accent);">512</span>
+                                        </div>
+                                        <input type="range" id="cfg-face-focus-val" min="0" max="1023" step="1" value="512" style="width: 100%;">
+                                        <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono);">
+                                            <span>0 (Far / Infinity)</span>
+                                            <span>512 (Mid)</span>
+                                            <span>1023 (Near / Macro)</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Tuple sliders (Per-Camera) -->
+                                    <div id="box-face-focus-tuple" style="width: 100%; display: none; flex-direction: column; gap: 14px; padding-top: 10px; border-top: 1px solid var(--neutral-border);">
+                                        <div style="width: 100%;">
+                                            <div style="display:flex; justify-content: space-between; width: 100%; margin-bottom: 4px;">
+                                                <label class="setting-row-title" style="font-size: 0.9rem; margin: 0;">Camera 1 Focus</label>
+                                                <span id="cfg-face-focus-cam1-val" style="font-family: var(--font-mono); font-weight: 600; color: var(--accent);">512</span>
+                                            </div>
+                                            <input type="range" id="cfg-face-focus-cam1" min="0" max="1023" step="1" value="512" style="width: 100%;">
+                                        </div>
+                                        <div style="width: 100%;">
+                                            <div style="display:flex; justify-content: space-between; width: 100%; margin-bottom: 4px;">
+                                                <label class="setting-row-title" style="font-size: 0.9rem; margin: 0;">Camera 2 Focus</label>
+                                                <span id="cfg-face-focus-cam2-val" style="font-family: var(--font-mono); font-weight: 600; color: var(--accent);">512</span>
+                                            </div>
+                                            <input type="range" id="cfg-face-focus-cam2" min="0" max="1023" step="1" value="512" style="width: 100%;">
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <div class="setting-row-box" style="padding: 16px; flex-direction: column; align-items: flex-start; gap:8px;">
                                     <label class="setting-row-title">Search Strategy</label>
                                     <select id="cfg-face-strategy" style="width:100%; padding: 8px; border-radius: 6px; background: var(--bg-primary); color: var(--text-main); border: 1px solid var(--neutral-border);">
@@ -153,41 +202,6 @@
                                     </div>
                                     <input type="range" id="cfg-face-manual-z" min="152" max="248" step="8" value="200" style="width: 100%;">
                                 </div>
-
-                                <div class="setting-row-box" style="padding: 16px; flex-direction: column; align-items: flex-start; gap:8px;">
-                                    <label class="setting-row-title">Focus Mode</label>
-                                    <select id="cfg-face-focus-mode" style="width:100%; padding: 8px; border-radius: 6px; background: var(--bg-primary); color: var(--text-main); border: 1px solid var(--neutral-border);">
-                                        <option value="auto" selected>Auto (Autofocus on face)</option>
-                                        <option value="none">None (Last saved position)</option>
-                                        <option value="custom">Single Value (Both Cameras)</option>
-                                        <option value="tuple">Per-Camera [Cam 1, Cam 2]</option>
-                                    </select>
-                                </div>
-
-                                <div class="setting-row-box" id="box-face-focus-val" style="padding: 16px; flex-direction: column; align-items: flex-start; gap:8px; display: none;">
-                                    <div style="display:flex; justify-content: space-between; width: 100%;">
-                                        <label class="setting-row-title">Focus Value (0 - 1023)</label>
-                                        <span id="cfg-face-focus-val-val" style="font-family: var(--font-mono); font-weight: 600; color: var(--accent);">512</span>
-                                    </div>
-                                    <input type="range" id="cfg-face-focus-val" min="0" max="1023" step="1" value="512" style="width: 100%;">
-                                </div>
-
-                                <div class="setting-row-box" id="box-face-focus-tuple" style="padding: 16px; flex-direction: column; align-items: flex-start; gap:12px; display: none;">
-                                    <div style="width: 100%;">
-                                        <div style="display:flex; justify-content: space-between; width: 100%; margin-bottom: 4px;">
-                                            <label class="setting-row-title" style="font-size: 0.85rem;">Camera 1 Focus</label>
-                                            <span id="cfg-face-focus-cam1-val" style="font-family: var(--font-mono); font-weight: 600; color: var(--accent);">512</span>
-                                        </div>
-                                        <input type="range" id="cfg-face-focus-cam1" min="0" max="1023" step="1" value="512" style="width: 100%;">
-                                    </div>
-                                    <div style="width: 100%;">
-                                        <div style="display:flex; justify-content: space-between; width: 100%; margin-bottom: 4px;">
-                                            <label class="setting-row-title" style="font-size: 0.85rem;">Camera 2 Focus</label>
-                                            <span id="cfg-face-focus-cam2-val" style="font-family: var(--font-mono); font-weight: 600; color: var(--accent);">512</span>
-                                        </div>
-                                        <input type="range" id="cfg-face-focus-cam2" min="0" max="1023" step="1" value="512" style="width: 100%;">
-                                    </div>
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -215,11 +229,11 @@
     <script src="https://cdn.jsdelivr.net/npm/simple-keyboard@latest/build/index.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/simple-keyboard-autocorrect@latest/build/index.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/swipe-keyboard@latest/build/index.min.js"></script>
-    <script src="js/global.js"></script>
-    <script src="js/scan-monitor.js?v=2"></script>
-    <script src="js/network.js"></script>
-    <script src="js/ai-chat.js"></script>
-    <script src="js/scanner.js"></script>
-    <script src="js/keyboard-init.js"></script>
+    <script src="js/global.js?v=4"></script>
+    <script src="js/scan-monitor.js?v=4"></script>
+    <script src="js/network.js?v=4"></script>
+    <script src="js/ai-chat.js?v=4"></script>
+    <script src="js/scanner.js?v=4"></script>
+    <script src="js/keyboard-init.js?v=4"></script>
 </body>
 </html>
