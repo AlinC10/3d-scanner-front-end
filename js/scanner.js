@@ -60,6 +60,9 @@ document.addEventListener('DOMContentLoaded', () => {
     syncSlider('cfg-adv-distance-z');        // z_axis.distance_mm: multiple of 8
     syncSlider('cfg-adv-led', '%'); 
     syncSlider('cfg-obj-turntable', '°', 1);
+    syncSlider('cfg-obj-focus-val');
+    syncSlider('cfg-obj-focus-cam1');
+    syncSlider('cfg-obj-focus-cam2');
 
     // Sync Sliders: Face Scan
     syncSlider('cfg-face-start-z');
@@ -69,6 +72,57 @@ document.addEventListener('DOMContentLoaded', () => {
     syncSlider('cfg-face-step');
     syncSlider('cfg-face-manual-z');
     syncSlider('cfg-face-delay-z', '', 4);   // 0.001 - 0.003
+    syncSlider('cfg-face-focus-val');
+    syncSlider('cfg-face-focus-cam1');
+    syncSlider('cfg-face-focus-cam2');
+
+    // --- TOGGLE STREAM RUNPOD (Streaming Pod) ---
+    const toggleStreamPod = document.getElementById('toggle-stream-pod');
+    if (toggleStreamPod) {
+        toggleStreamPod.addEventListener('click', function() {
+            this.classList.toggle('active');
+        });
+    }
+
+    // --- FOCUS MODE TOGGLES (Object & Face) ---
+    const focusObjMode = document.getElementById('cfg-obj-focus-mode');
+    const boxObjFocusVal = document.getElementById('box-obj-focus-val');
+    const boxObjFocusTuple = document.getElementById('box-obj-focus-tuple');
+    if (focusObjMode) {
+        focusObjMode.addEventListener('change', (e) => {
+            const v = e.target.value;
+            if (boxObjFocusVal) boxObjFocusVal.style.display = v === 'custom' ? 'flex' : 'none';
+            if (boxObjFocusTuple) boxObjFocusTuple.style.display = v === 'tuple' ? 'flex' : 'none';
+        });
+    }
+
+    const focusFaceMode = document.getElementById('cfg-face-focus-mode');
+    const boxFaceFocusVal = document.getElementById('box-face-focus-val');
+    const boxFaceFocusTuple = document.getElementById('box-face-focus-tuple');
+    if (focusFaceMode) {
+        focusFaceMode.addEventListener('change', (e) => {
+            const v = e.target.value;
+            if (boxFaceFocusVal) boxFaceFocusVal.style.display = v === 'custom' ? 'flex' : 'none';
+            if (boxFaceFocusTuple) boxFaceFocusTuple.style.display = v === 'tuple' ? 'flex' : 'none';
+        });
+    }
+
+    function getFocusParam(prefix) {
+        const mode = document.getElementById(`${prefix}-focus-mode`)?.value || 'auto';
+        if (mode === 'none') return null;
+        if (mode === 'custom') {
+            const raw = parseInt(document.getElementById(`${prefix}-focus-val`)?.value || '512', 10);
+            return isNaN(raw) ? 512 : Math.max(0, Math.min(1023, raw));
+        }
+        if (mode === 'tuple') {
+            const c1 = parseInt(document.getElementById(`${prefix}-focus-cam1`)?.value || '512', 10);
+            const c2 = parseInt(document.getElementById(`${prefix}-focus-cam2`)?.value || '512', 10);
+            const val1 = isNaN(c1) ? 512 : Math.max(0, Math.min(1023, c1));
+            const val2 = isNaN(c2) ? 512 : Math.max(0, Math.min(1023, c2));
+            return [val1, val2];
+        }
+        return 'auto';
+    }
 
     // Logică pentru a activa Manual Z doar când Search Strategy este 'none'
     const strategySelect = document.getElementById('cfg-face-strategy');
@@ -100,6 +154,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (objRes) objRes.value = '960x720';
 
             setSliderValue('cfg-adv-led', 100, '%');
+            if (toggleStreamPod) toggleStreamPod.classList.add('active');
+            if (focusObjMode) focusObjMode.value = 'auto';
+            if (boxObjFocusVal) boxObjFocusVal.style.display = 'none';
+            if (boxObjFocusTuple) boxObjFocusTuple.style.display = 'none';
+            setSliderValue('cfg-obj-focus-val', 512);
+            setSliderValue('cfg-obj-focus-cam1', 512);
+            setSliderValue('cfg-obj-focus-cam2', 512);
         });
     }
 
@@ -120,6 +181,12 @@ document.addEventListener('DOMContentLoaded', () => {
             setSliderValue('cfg-face-search-range', 48);
             setSliderValue('cfg-face-step', 8);
             setSliderValue('cfg-face-manual-z', 200);
+            if (focusFaceMode) focusFaceMode.value = 'auto';
+            if (boxFaceFocusVal) boxFaceFocusVal.style.display = 'none';
+            if (boxFaceFocusTuple) boxFaceFocusTuple.style.display = 'none';
+            setSliderValue('cfg-face-focus-val', 512);
+            setSliderValue('cfg-face-focus-cam1', 512);
+            setSliderValue('cfg-face-focus-cam2', 512);
         });
     }
 
@@ -212,11 +279,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     "quality": photoQuality,
                     "photo_resolution": [4056, 3040],
                     "preview_resolution": previewRes,
-                    "focus": "auto"
+                    "focus": getFocusParam('cfg-obj')
                 }
             };
 
             const turntableAngle = parseFloat(document.getElementById('cfg-obj-turntable')?.value || 18.0); 
+            const streamPod = toggleStreamPod ? toggleStreamPod.classList.contains('active') : true;
 
             // PAYLOAD 2: Ce vom trimite la /scanner/start de pe pagina de progres
             const startPayload = {
@@ -240,7 +308,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 "cloud": {
                     "launch_runpod": true,
                     "resolution_level": 1,
-                    "title": readTitle('cfg-obj-title')
+                    "title": readTitle('cfg-obj-title'),
+                    "start_pod_with_scan": streamPod
                 }
             };
             savePendingDetails('cfg-obj-title', 'cfg-obj-desc');
@@ -268,7 +337,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 "z_delay": zDelay,
                 "camera_config": {
                     "quality": faceQuality,
-                    "focus": "auto" // Auto focus la captură
+                    "focus": getFocusParam('cfg-face')
                 }
             };
             

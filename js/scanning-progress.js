@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const urlParams = new URLSearchParams(window.location.search);
     let scanMode = urlParams.get('mode') || localStorage.getItem('scanMode') || 'object';
+    let targetJobId = urlParams.get('job_id') || null;
 
     // Extragem setările avansate pregătite din pasul anterior
     let pendingScanSettings = {};
@@ -17,18 +18,20 @@ document.addEventListener('DOMContentLoaded', () => {
         console.error("Failed to parse pendingScanSettings:", e);
     }
 
+    const jobLabel = document.getElementById('scan-job-label');
     const statusTitle = document.getElementById('scan-status-title');
     const phaseMessage = document.getElementById('scan-phase-message');
     const cloudMessage = document.getElementById('scan-cloud-message');
     const btnRetryCloud = document.getElementById('btn-retry-cloud');
     const btnRetakeFace = document.getElementById('btn-retake-face');
+    const btnNewScan = document.getElementById('btn-new-scan');
     const uploadWarning = document.getElementById('scan-upload-warning');
     const connWarning = document.getElementById('scan-conn-warning');
 
-    const UPLOAD_WARN_BEFORE_S = 60;   // warn this long before the upload drain timeout fails the run
-    const CONN_LOST_AFTER = 3;         // failed status requests in a row (~3 s) before "connection lost"
+    const UPLOAD_WARN_BEFORE_S = 60;   // warn this long before upload drain timeout fails the run
+    const CONN_LOST_AFTER = 3;         // failed status requests before warning
     let statusFailures = 0;
-    let scanEnded = false;             // error / completed: the red button only leads back to the menu
+    let scanEnded = false;             // error / completed: button leads back to menu
     const scanStream = document.getElementById('active-scan-stream');
     
     const inputGroup = document.getElementById('scan-input-group'); 
@@ -49,6 +52,12 @@ document.addEventListener('DOMContentLoaded', () => {
     let libraryResultId = null;
     let lastStatusKey = '';
 
+    if (btnNewScan) {
+        btnNewScan.addEventListener('click', () => {
+            window.location.href = scanMode === 'face' ? 'scan-face.html' : 'scan-object.html';
+        });
+    }
+
     // --- 1. SCHIMBARE CAMERE ---
     let activeCameraId = 1;
     let retryTimer = null;
@@ -58,8 +67,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return `${API_URL}/scanner/stream/mjpeg?camera=${camId}&t=${new Date().getTime()}`;
     }
 
-    // After the photos are taken the cameras stop: drop the <img> (its last frame would stay
-    // frozen on screen), stop the reload retries and centre the status panel.
     let streamStopped = false;
     function stopStreamView() {
         if (streamStopped) return;
@@ -74,6 +81,17 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelector('.scanning-container')?.classList.add('stream-off');
     }
 
+    function resumeStreamView() {
+        if (!streamStopped) return;
+        streamStopped = false;
+        if (scanStream) {
+            scanStream.style.display = 'block';
+        }
+        if (btnSwitchCamera) btnSwitchCamera.style.display = 'flex';
+        document.querySelector('.scanning-container')?.classList.remove('stream-off');
+        loadStream(activeCameraId);
+    }
+
     function loadStream(camId, attempt = 0) {
         if (!scanStream || streamStopped) return;
         clearTimeout(retryTimer);
@@ -86,13 +104,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     retryTimer = setTimeout(() => loadStream(camId, attempt + 1), 1000);
                 } else {
                     console.error(`Camera ${camId} timeout.`);
-                    if(statusTitle && !hasSentStartCommand) statusTitle.innerText = "Camera stream failed to load.";
+                    if (statusTitle && !hasSentStartCommand) statusTitle.innerText = "Camera stream failed to load.";
                 }
             };
             scanStream.src = streamUrl(camId);
         }, 150);
     }
 
+    // Only load stream initially if not explicitly pointing to an offline background job
     loadStream(activeCameraId);
 
     if (btnSwitchCamera) {
@@ -105,7 +124,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Warn when the connection drops during the scan (photos are uploaded as they are taken)
+    // Warn when the connection drops during the scan
     window.addEventListener('network-state', (e) => {
         if (!phaseMessage || !hasSentStartCommand || statusInterval === null) return;
         let warn = document.getElementById('scan-net-warning');
@@ -121,7 +140,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 2. CANCEL ACTION ---
     async function triggerCancel() {
-        if (scanEnded) {                    // nothing runs any more: no emergency stop, just leave
+        if (scanEnded) {
             markScanSeen();
             window.location.href = 'index.html';
             return;
@@ -129,13 +148,22 @@ document.addEventListener('DOMContentLoaded', () => {
         if (statusInterval) clearInterval(statusInterval);
         clearTimeout(retryTimer);
         if (statusTitle) statusTitle.innerText = "Canceling...";
-        try { await fetch(`${API_URL}/scanner/cancel`, { method: 'POST' }); } catch (e) {}
+        if (btnCancel) btnCancel.disabled = true;
+
+        if (targetJobId) {
+            try {
+                await fetch(`${API_URL}/jobs/${encodeURIComponent(targetJobId)}/cancel`, { method: 'POST' });
+            } catch (e) {}
+        }
+        try {
+            await fetch(`${API_URL}/scanner/cancel`, { method: 'POST' });
+        } catch (e) {}
+
         window.location.href = 'index.html';
     }
     if (btnCancel) btnCancel.addEventListener('click', triggerCancel);
 
-
-    // --- 3. AUTO-START SCAN (Se declanșează instant când e PREPARED) ---
+    // --- 3. AUTO-START SCAN (Când hardware este PREPARED) ---
     async function fireStartCommand() {
         try {
             progressContainer.style.display = 'block'; 
@@ -194,8 +222,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const t = document.getElementById('scan-title-input').value.trim();
         const d = document.getElementById('scan-desc-input').value.trim();
         const payload = {};
-        if(t) payload.title = t;
-        if(d) payload.description = d;
+        if (t) payload.title = t;
+        if (d) payload.description = d;
         
         if (Object.keys(payload).length > 0) {
             btnSaveDetails.innerText = "Saving...";
@@ -210,9 +238,8 @@ document.addEventListener('DOMContentLoaded', () => {
         window.location.href = 'library.html';
     }
 
-    if(btnSaveDetails) btnSaveDetails.addEventListener('click', saveFinalDetails);
-    if(btnSkipDetails) btnSkipDetails.addEventListener('click', () => { markScanSeen(); window.location.href = 'library.html'; });
-
+    if (btnSaveDetails) btnSaveDetails.addEventListener('click', saveFinalDetails);
+    if (btnSkipDetails) btnSkipDetails.addEventListener('click', () => { markScanSeen(); window.location.href = 'library.html'; });
 
     // --- 5. POLLING PENTRU STATUS ---
     function initStatusPolling(keepTitle = false) {
@@ -224,173 +251,235 @@ document.addEventListener('DOMContentLoaded', () => {
 
         statusInterval = setInterval(async () => {
             try {
-                const res = await fetch(`${API_URL}/scanner/status`, { cache: 'no-store' });
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                {
-                    const data = await res.json();
-                    // answered again: a single missed request never shows the warning
+                // 1. Interogăm starea hardware
+                let scannerData = null;
+                try {
+                    const sRes = await fetch(`${API_URL}/scanner/status`, { cache: 'no-store' });
+                    if (sRes.ok) scannerData = await sRes.json();
+                } catch (se) {}
+
+                if (scannerData) {
                     statusFailures = 0;
                     if (connWarning) connWarning.style.display = 'none';
-                    
-                    // Indiferent că e trimis ca 'PREPARED', 'Prepared' sau 'prepared', îl normalizăm
-                    const rawState = data.state || '';
-                    const currentState = rawState.toLowerCase();
-                    lastStatusKey = `${currentState}:${data.job_id || ''}:${data.result_id || ''}`;
+                }
 
-                    // Returning to a scan that already started: do not send start again, just follow it
-                    if (!hasSentStartCommand && ['running', 'processing', 'downloading'].includes(currentState)) {
+                // Sincronizăm targetJobId dacă scanerul a pornit unul nou
+                if (!targetJobId && scannerData && scannerData.job_id) {
+                    targetJobId = scannerData.job_id;
+                    try {
+                        const u = new URL(window.location.href);
+                        u.searchParams.set('job_id', targetJobId);
+                        window.history.replaceState(null, '', u.toString());
+                    } catch (e) {}
+                }
+
+                const rawRigState = (scannerData && scannerData.state || '').toLowerCase();
+                const isRigActiveForTarget = scannerData && 
+                    (!targetJobId || scannerData.job_id === targetJobId) && 
+                    ['preparing', 'prepared', 'running'].includes(rawRigState);
+
+                // --- CAZUL A: Scanare fizică ACTIVĂ pe aparat (Stream MJPEG activ) ---
+                if (isRigActiveForTarget) {
+                    resumeStreamView();
+
+                    if (jobLabel) {
+                        jobLabel.innerText = targetJobId ? `Job: ${targetJobId} (${scanMode.toUpperCase()})` : '';
+                        jobLabel.style.display = targetJobId ? 'block' : 'none';
+                    }
+
+                    lastStatusKey = `${rawRigState}:${scannerData.job_id || ''}:${scannerData.result_id || ''}`;
+
+                    if (!hasSentStartCommand && ['running', 'processing', 'downloading'].includes(rawRigState)) {
                         hasSentStartCommand = true;
-                        if (data.mode) scanMode = data.mode;
+                        if (scannerData.mode) scanMode = scannerData.mode;
                     }
 
-                    // Cameras are off once the run reaches the cloud / face reconstruction step
-                    if (hasSentStartCommand && (currentState === 'processing' || currentState === 'downloading' || data.phase === 'reconstructing_face')) {
-                        stopStreamView();
+                    if (scannerData.phase_message && phaseMessage && !statusTitle.innerText.includes("Rejected")) {
+                        phaseMessage.innerText = scannerData.phase_message;
                     }
 
-                    if (data.phase_message && phaseMessage && !statusTitle.innerText.includes("Rejected")) {
-                        phaseMessage.innerText = data.phase_message;
-                    }
-
-                    // cloud_message: detail line of the cloud processing (null outside of it)
                     if (cloudMessage) {
-                        cloudMessage.innerText = data.cloud_message || '';
-                        cloudMessage.style.display = data.cloud_message ? 'block' : 'none';
+                        cloudMessage.innerText = scannerData.cloud_message || '';
+                        cloudMessage.style.display = scannerData.cloud_message ? 'block' : 'none';
                     }
-                    updateUploadWarning(data, currentState);
+                    updateUploadWarning(scannerData, rawRigState);
 
-                    // 👉 5.1 PREPARED TRIGGER - Instant FĂRĂ delay!
-                    if (currentState === 'prepared' && !hasSentStartCommand) {
+                    // PREPARED TRIGGER: Instant auto-start
+                    if (rawRigState === 'prepared' && !hasSentStartCommand) {
                         hasSentStartCommand = true;
                         statusTitle.innerText = "Status: Initializing Capture...";
-                        
-                        // Firing instant!
                         fireStartCommand();
                     }
 
-                    // 5.2 PROGRESS BAR (Când chiar e în mișcare)
-                    if ((currentState === 'running' || currentState === 'processing' || currentState === 'downloading') && hasSentStartCommand) {
-                        let displayState = currentState.charAt(0).toUpperCase() + currentState.slice(1);
-                        statusTitle.innerText = `Status: ${displayState}`;
+                    // Progress Bar hardware
+                    if (rawRigState === 'running' && hasSentStartCommand) {
+                        statusTitle.innerText = "Status: Running";
                         progressContainer.style.display = 'block';
-                        
-                        if (currentState === 'running' && data.total_photos && data.total_photos > 0) {
-                            const up = data.photos_uploaded || 0;
-                            const tot = data.total_photos;
+
+                        if (scannerData.total_photos && scannerData.total_photos > 0) {
+                            const up = scannerData.photos_uploaded || 0;
+                            const tot = scannerData.total_photos;
                             const pct = Math.round((up / tot) * 100);
-                            
                             progressBar.style.width = `${pct}%`;
-                            const cap = data.photos_captured || 0;
-                            const ring = data.level ? `Ring ${data.level} · ` : '';
+                            const cap = scannerData.photos_captured || 0;
+                            const ring = scannerData.level ? `Ring ${scannerData.level} · ` : '';
                             progressText.innerText = `${ring}${cap} captured · ${up} / ${tot} uploaded`;
                             progressPct.innerText = `${pct}%`;
                             progressBar.style.opacity = '1';
-                        } else {
-                            progressBar.style.width = '100%';
-                            progressBar.style.opacity = '0.5';
-                            progressText.innerText = data.phase_message ? "Working..." : "Processing Model in Cloud...";
-                            progressPct.innerText = "Wait";
                         }
                     }
 
-                    // 5.3 FINALIZAREA
-                    const finalStates = ["completed", "error", "cancelled"];
-                    if (finalStates.includes(currentState)) {
-                        clearInterval(statusInterval);
-                        stopStreamView();
-                        if (cloudMessage) cloudMessage.style.display = 'none';
-                        if (uploadWarning) uploadWarning.style.display = 'none';
-                        if (currentState !== 'cancelled') {
-                            scanEnded = true;
+                    if (btnNewScan) btnNewScan.style.display = 'none';
+
+                } else {
+                    // --- CAZUL B: Reconstrucție în Cloud / Job specific pe Server (/jobs) ---
+                    stopStreamView();
+
+                    let job = null;
+                    if (targetJobId) {
+                        try {
+                            const jRes = await fetch(`${API_URL}/jobs?id=${encodeURIComponent(targetJobId)}`, { cache: 'no-store' });
+                            if (jRes.ok) job = await jRes.json();
+                        } catch (je) {}
+                    }
+
+                    // Dacă jobul a fost găsit în registrul /jobs
+                    if (job) {
+                        const jStatus = (job.status || '').toLowerCase();
+                        scanMode = job.kind || scanMode;
+                        lastStatusKey = `${jStatus}:${job.job_id || ''}:${job.result_id || ''}`;
+
+                        if (jobLabel) {
+                            const jobTitle = job.meta?.title ? `${job.meta.title} (${(job.kind || 'object').toUpperCase()})` : `Job: ${job.job_id}`;
+                            jobLabel.innerText = jobTitle;
+                            jobLabel.style.display = 'block';
+                        }
+
+                        if (phaseMessage) {
+                            phaseMessage.innerText = job.phase_message || 'Processing 3D model in background...';
+                        }
+
+                        if (cloudMessage) {
+                            const cm = job.cloud_message || (job.pod_id ? `Pod ID: ${job.pod_id}` : '');
+                            cloudMessage.innerText = cm;
+                            cloudMessage.style.display = cm ? 'block' : 'none';
+                        }
+
+                        // Statusurile active în cloud
+                        if (['processing', 'uploading', 'running', 'queued'].includes(jStatus)) {
+                            hasSentStartCommand = true;
+                            statusTitle.innerText = jStatus === 'processing' 
+                                ? "Status: Cloud Reconstruction (Processing)" 
+                                : `Status: ${jStatus.charAt(0).toUpperCase() + jStatus.slice(1)}`;
+                            statusTitle.style.color = "var(--accent)";
+
+                            progressContainer.style.display = 'block';
+                            progressBar.style.width = '100%';
+                            progressBar.style.opacity = '0.6';
+                            progressText.innerText = job.phase_message || "Processing Model in Cloud...";
+                            progressPct.innerText = "Wait";
+
+                            // Rig este liber: oferim buton de scanare nouă
+                            if (btnNewScan) btnNewScan.style.display = 'flex';
+
+                            btnCancel.style.display = 'block';
+                            btnCancel.innerText = 'Cancel Scan';
+                            btnCancel.style.borderColor = '#ef4444';
+                            btnCancel.style.color = '#ef4444';
+
+                        } else if (jStatus === 'completed') {
+                            statusTitle.innerText = "Scan completed successfully!";
+                            statusTitle.style.color = "#10b981";
+                            progressContainer.style.display = 'none';
+
+                            if (btnNewScan) btnNewScan.style.display = 'flex';
+                            libraryResultId = job.result_id;
+
+                            btnCancel.style.display = 'block';
+                            btnCancel.innerText = 'Open in Library';
+                            btnCancel.style.borderColor = 'var(--accent)';
+                            btnCancel.style.color = 'var(--accent)';
+                            btnCancel.onclick = () => window.location.href = 'library.html';
+
+                        } else if (jStatus === 'failed') {
+                            statusTitle.innerText = `Error: ${job.error || "Reconstruction Failed"}`;
+                            statusTitle.style.color = "#ef4444";
+                            progressContainer.style.display = 'none';
+
+                            if (btnRetryCloud && (job.kind || scanMode) === 'object') {
+                                btnRetryCloud.style.display = 'flex';
+                            }
+                            if (btnNewScan) btnNewScan.style.display = 'flex';
+
+                            btnCancel.style.display = 'block';
                             btnCancel.innerText = 'Back to menu';
                             btnCancel.style.borderColor = 'var(--neutral-border)';
                             btnCancel.style.color = 'var(--text-main)';
+                            btnCancel.onclick = () => window.location.href = 'index.html';
+
+                        } else if (jStatus === 'cancelled') {
+                            statusTitle.innerText = "Scan Cancelled.";
+                            statusTitle.style.color = "#f59e0b";
+                            progressContainer.style.display = 'none';
+                            btnCancel.style.display = 'block';
+                            btnCancel.innerText = 'Back to menu';
+                            btnCancel.onclick = () => window.location.href = 'index.html';
                         }
 
-                        if (currentState === "error") {
-                            if (statusTitle) {
-                                statusTitle.innerText = `Error: ${data.error || "Hardware Failure"}`;
-                                statusTitle.style.color = "#ef4444";
-                            }
-                            phaseMessage.innerText = "Please check the scanner and try again.";
-                            if (data.missing && data.missing.length) phaseMessage.innerText += `\n${data.missing.length} photo(s) missing in the cloud`;
-                            // an object scan that failed in the cloud step can be rebuilt from the uploaded photos
-                            if (btnRetryCloud && (data.mode || scanMode) === 'object') btnRetryCloud.style.display = 'flex';
-                        } 
-                        else if (currentState === "cancelled") {
-                            if (statusTitle) {
-                                statusTitle.innerText = "Scan Cancelled.";
-                                statusTitle.style.color = "#f59e0b";
-                            }
-                            setTimeout(() => { window.location.href = 'index.html'; }, 3000);
-                        } 
-                        else if (currentState === "completed") {
-                            if (statusTitle) {
-                                statusTitle.innerText = "Scan completed successfully!";
-                                statusTitle.style.color = "#10b981";
-                            }
-                            phaseMessage.innerText = "Please name your scan before viewing it.";
-                            
+                    } else if (scannerData) {
+                        // Fallback pe scannerData (când /jobs nu este disponibil sau nu a înregistrat încă)
+                        const currentState = rawRigState;
+                        lastStatusKey = `${currentState}:${scannerData.job_id || ''}:${scannerData.result_id || ''}`;
+
+                        if (scannerData.phase_message && phaseMessage && !statusTitle.innerText.includes("Rejected")) {
+                            phaseMessage.innerText = scannerData.phase_message;
+                        }
+                        if (cloudMessage) {
+                            cloudMessage.innerText = scannerData.cloud_message || '';
+                            cloudMessage.style.display = scannerData.cloud_message ? 'block' : 'none';
+                        }
+
+                        if (['processing', 'downloading'].includes(currentState)) {
+                            statusTitle.innerText = "Status: Cloud Reconstruction (Processing)";
+                            statusTitle.style.color = "var(--accent)";
+                            progressContainer.style.display = 'block';
+                            progressBar.style.width = '100%';
+                            progressBar.style.opacity = '0.6';
+                            progressText.innerText = scannerData.phase_message || "Processing Model in Cloud...";
+                            progressPct.innerText = "Wait";
+
+                            if (btnNewScan) btnNewScan.style.display = 'flex';
+                        } else if (currentState === 'completed') {
+                            statusTitle.innerText = "Scan completed successfully!";
+                            statusTitle.style.color = "#10b981";
                             progressContainer.style.display = 'none';
-                            btnCancel.style.display = 'none';   // the name form has its own buttons
-                            
-                            if (scanMode === 'face' && data.face_result) {
-                                libraryResultId = data.face_result.result_id;
-                            } else {
-                                libraryResultId = data.result_id;
-                            }
-
-                            const fr = scanMode === 'face' ? data.face_result : null;
-                            if (fr) {
-                                const bits = [];
-                                if (fr.warning) bits.push(`⚠ ${fr.warning}`);
-                                const m = fr.metrics;
-                                if (m && m.dimensions_mm) bits.push(`Face ${Math.round(m.dimensions_mm.width)} × ${Math.round(m.dimensions_mm.height)} mm`);
-                                if (m && m.interpupillary_distance_mm) bits.push(`IPD ${m.interpupillary_distance_mm.toFixed(1)} mm`);
-                                if (bits.length) phaseMessage.innerText = bits.join('\n');
-                                // eyes_open: 0 closed .. 1 open, null not checked; below 0.5 the server also sends a warning
-                                const eyesClosed = typeof fr.eyes_open === 'number' && fr.eyes_open < 0.5;
-                                if (btnRetakeFace && (eyesClosed || fr.face_detected === false)) btnRetakeFace.style.display = 'flex';
-                            }
-                            if (data.missing && data.missing.length) phaseMessage.innerText += `\n${data.missing.length} photo(s) missing in the cloud`;
-
-                            // Name / description typed before the scan: show them in the final form, and save the
-                            // description now (the start request only carries the name)
-                            let preTitle = '', preDesc = '';
-                            try {
-                                preTitle = localStorage.getItem('pendingScanTitle') || '';
-                                preDesc = localStorage.getItem('pendingScanDescription') || '';
-                                localStorage.removeItem('pendingScanTitle');
-                                localStorage.removeItem('pendingScanDescription');
-                            } catch (e) {}
-                            const titleInput = document.getElementById('scan-title-input');
-                            const descInput = document.getElementById('scan-desc-input');
-                            if (titleInput) titleInput.value = preTitle;
-                            if (descInput) descInput.value = preDesc;
-                            if (preDesc && libraryResultId) {
-                                fetch(`${API_URL}/library/objects/${libraryResultId}`, {
-                                    method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ description: preDesc })
-                                }).catch(() => {});
-                            }
-
-                            // Afișăm formularul final pentru editare Titlu/Descriere
+                            btnCancel.style.display = 'none';
+                            libraryResultId = (scanMode === 'face' && scannerData.face_result) 
+                                ? scannerData.face_result.result_id 
+                                : scannerData.result_id;
                             inputGroup.style.display = 'flex';
+                        } else if (currentState === 'error') {
+                            statusTitle.innerText = `Error: ${scannerData.error || "Hardware Failure"}`;
+                            statusTitle.style.color = "#ef4444";
+                            progressContainer.style.display = 'none';
+                            if (btnRetryCloud && (scannerData.mode || scanMode) === 'object') {
+                                btnRetryCloud.style.display = 'flex';
+                            }
+                            btnCancel.innerText = 'Back to menu';
                         }
                     }
                 }
+
             } catch (e) {
                 console.warn("Polling error:", e);
-                // keep polling: the warning goes away by itself as soon as the server answers
                 if (++statusFailures >= CONN_LOST_AFTER && connWarning) {
-                    connWarning.innerText = '⚠ Connection to the scanner lost. Reconnecting...';
+                    connWarning.innerText = '⚠ Connection to scanner lost. Reconnecting...';
                     connWarning.style.display = 'block';
                 }
             }
-        }, 1000); // Scăzut de la 1500ms la 1000ms pentru a prinde și mai repede starea PREPARED
+        }, 1000);
     }
 
-    // The run fails after upload_drain_timeout_s without a successful upload: warn during the last minute,
-    // only while photos are still waiting to be uploaded
     function updateUploadWarning(data, state) {
         if (!uploadWarning) return;
         const since = data.seconds_since_last_upload;
@@ -399,8 +488,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const left = (typeof since === 'number' && typeof limit === 'number') ? limit - since : Infinity;
         if (state === 'running' && pending && left <= UPLOAD_WARN_BEFORE_S) {
             uploadWarning.innerText = left > 0
-                ? `⚠ No photo uploaded for ${Math.round(since)} s. The scan fails in ${Math.ceil(left)} s unless the upload resumes. Check the network cable.`
-                : '⚠ No photo uploaded for too long: the scan is about to fail.';
+                ? `⚠ No photo uploaded for ${Math.round(since)} s. Scan fails in ${Math.ceil(left)} s. Check network cable.`
+                : '⚠ No photo uploaded for too long: scan is about to fail.';
             uploadWarning.style.display = 'block';
         } else {
             uploadWarning.style.display = 'none';
@@ -412,7 +501,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btnRetryCloud.disabled = true;
         try {
             const res = await fetch(`${API_URL}/scanner/cloud/retry`, { method: 'POST' });
-            if (res.status === 400) {           // nothing to retry: hide the button for good
+            if (res.status === 400) {
                 btnRetryCloud.style.display = 'none';
                 phaseMessage.innerText = await window.apiError(res);
                 return;
@@ -423,7 +512,7 @@ document.addEventListener('DOMContentLoaded', () => {
             statusTitle.innerText = 'Status: Processing';
             const data = await res.json().catch(() => ({}));
             phaseMessage.innerText = data.message || 'Retrying the reconstruction...';
-            hasSentStartCommand = true;         // follow the run, never send start again
+            hasSentStartCommand = true;
             scanEnded = false;
             btnCancel.innerText = 'Cancel Scan';
             btnCancel.style.borderColor = '#ef4444';
@@ -436,7 +525,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // each face capture needs its own prepare: back to the face preparation page
     if (btnRetakeFace) btnRetakeFace.addEventListener('click', () => {
         markScanSeen();
         window.location.href = 'scan-face.html';

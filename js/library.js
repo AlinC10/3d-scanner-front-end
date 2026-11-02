@@ -19,9 +19,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const searchInput = document.getElementById('library-search-input');
     const libTabs = document.querySelectorAll('.lib-tab');
 
-    const btnExportBt = document.getElementById('btn-export-bt');
-    const btnExportBtCancel = document.getElementById('btn-export-bt-cancel');
+    const btnExportQr = document.getElementById('btn-export-qr');
+    const btnShowQr = document.getElementById('btn-show-qr');
     const exportStatus = document.getElementById('export-status');
+    const exportProgress = document.getElementById('export-progress');
+    const exportProgressFill = document.getElementById('export-progress-fill');
+    const qrModal = document.getElementById('qr-modal');
+    const qrImage = document.getElementById('qr-image');
+    const qrExpiry = document.getElementById('qr-expiry');
+    const btnCloseQr = document.getElementById('btn-close-qr');
     const btnSaveEdit = document.getElementById('btn-save-edit');
     const btnCancelEdit = document.getElementById('btn-cancel-edit');
 
@@ -52,12 +58,16 @@ document.addEventListener('DOMContentLoaded', () => {
             gridView.style.display = 'flex';
             stopExportPolling();
             showExportStatus('');
+            showExportProgress(null);
+            if (btnShowQr) btnShowQr.style.display = 'none';
             if (libraryDirty) { libraryDirty = false; loadLibrary(currentPage); }
             if (mainModelObject && mainScene) {
                 mainScene.remove(mainModelObject);
                 mainModelObject = null;
             }
+            // pause the viewer while the grid is shown; loadMain3DModel starts it again
             if (mainAnimationFrameId) cancelAnimationFrame(mainAnimationFrameId);
+            mainAnimationFrameId = null;
         });
     }
 
@@ -68,12 +78,19 @@ document.addEventListener('DOMContentLoaded', () => {
         exportStatus.innerText = text || '';
     }
 
+    // pct: 0..100, or null to hide the bar
+    function showExportProgress(pct) {
+        if (!exportProgress) return;
+        exportProgress.style.display = pct === null ? 'none' : 'block';
+        if (pct !== null) exportProgressFill.style.width = `${pct}%`;
+    }
+
     function stopExportPolling() {
         clearTimeout(exportPollTimer);
         exportPollTimer = null;
-        if (btnExportBtCancel) btnExportBtCancel.style.display = 'none';
+        showExportProgress(null);
         if (btnExport) btnExport.disabled = false;
-        if (btnExportBt) btnExportBt.disabled = false;
+        if (btnExportQr) btnExportQr.disabled = false;
     }
 
     // Poll every second until the export ends; onState returns true when finished
@@ -97,7 +114,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const isUsb = kind === 'usb';
         showExportStatus('');
         btnExport.disabled = true;
-        btnExportBt.disabled = true;
+        btnExportQr.disabled = true;
+        if (btnShowQr) btnShowQr.style.display = 'none';
         try {
             // GET /library/usb lists the sticks; with several, the user picks one
             let body = null;
@@ -123,7 +141,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: body ? JSON.stringify(body) : undefined
             });
             if (res.status === 503) {
-                showExportStatus(isUsb ? 'Insert a USB stick.' : 'Connect a Bluetooth device first.', true);
+                showExportStatus(isUsb ? 'Insert a USB stick.' : await window.apiError(res), true);
                 return stopExportPolling();
             }
             if (!res.ok) {
@@ -147,25 +165,51 @@ document.addEventListener('DOMContentLoaded', () => {
                 return false;
             });
         } else {
-            btnExportBtCancel.style.display = 'flex';
-            showExportStatus('Preparing archive...');
-            pollExport('/library/export/bluetooth/status', (st) => {
-                if (st.state === 'error') { showExportStatus(st.error || 'Bluetooth export failed.', true); return true; }
-                if (st.state === 'cancelled') { showExportStatus('Transfer cancelled.'); return true; }
-                if (st.state === 'done') { showExportStatus('Sent to the phone.'); return true; }
-                showExportStatus(st.state === 'sending' ? 'Sending to the phone...' : 'Preparing archive...');
+            // QR: archive, upload to Cloudflare R2, then a signed link valid 24 h
+            const exportedId = currentLoadedModelId;
+            showExportStatus('Preparing the archive...');
+            showExportProgress(0);
+            pollExport('/library/export/qr/status', (st) => {
+                if (st.state === 'error') { showExportStatus(st.error || 'The upload failed.', true); return true; }
+                if (st.state === 'expired') { showExportStatus('The link expired. Try again.', true); return true; }
+                if (st.state === 'done') {
+                    showExportStatus('');
+                    if (exportedId === currentLoadedModelId) {
+                        lastQr = { id: exportedId, expiresAt: st.expires_at };
+                        showQr();
+                    }
+                    return true;
+                }
+                const pct = st.bytes_total ? Math.round((st.bytes_done / st.bytes_total) * 100) : 0;
+                showExportProgress(pct);
+                showExportStatus(st.state === 'uploading' ? `Uploading to the cloud... ${pct}%` : `Preparing the archive... ${pct}%`);
                 return false;
             });
         }
     }
 
-    if (btnExport) btnExport.addEventListener('click', () => startExport('usb'));
-    if (btnExportBt) btnExportBt.addEventListener('click', () => startExport('bluetooth'));
-    if (btnExportBtCancel) {
-        btnExportBtCancel.addEventListener('click', async () => {
-            try { await fetch(`${API_URL}/library/export/bluetooth/cancel`, { method: 'POST' }); } catch (e) {}
-        });
+    // --- QR CODE ---
+    let lastQr = null; // { id, expiresAt }: the link made for the model open now
+
+    function showQr() {
+        if (!qrModal || !lastQr) return;
+        qrImage.src = `${API_URL}/library/export/qr/image.svg?t=${Date.now()}`; // a new link has a new code
+        qrExpiry.textContent = lastQr.expiresAt
+            ? `Valid until ${new Date(lastQr.expiresAt * 1000).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} (24 h)`
+            : 'Valid 24 h';
+        qrModal.classList.add('show');
+        if (btnShowQr) btnShowQr.style.display = 'flex';
     }
+
+    if (qrImage) qrImage.addEventListener('error', () => {
+        qrModal.classList.remove('show');
+        showExportStatus('The QR code is not available. Try again.', true);
+    });
+    if (btnCloseQr) btnCloseQr.addEventListener('click', () => qrModal.classList.remove('show'));
+    if (btnShowQr) btnShowQr.addEventListener('click', showQr);
+
+    if (btnExport) btnExport.addEventListener('click', () => startExport('usb'));
+    if (btnExportQr) btnExportQr.addEventListener('click', () => startExport('qr'));
 
     // --- EDIT (PATCH only the changed fields) ---
     function fillDetailForm() {
@@ -409,6 +453,8 @@ document.addEventListener('DOMContentLoaded', () => {
         currentLoadedModelId = item.id;
         currentItem = item;
         showExportStatus('');
+        // the QR shown before belongs to another model
+        if (btnShowQr) btnShowQr.style.display = lastQr && lastQr.id === item.id ? 'flex' : 'none';
         
         currentFmt = (item.models && item.models['.glb']) ? 'glb' : 'stl';
         currentLod = 'low';
@@ -561,16 +607,24 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        function animateMain() {
-            mainAnimationFrameId = requestAnimationFrame(animateMain);
-            mainControls.update();
-            mainRenderer.render(mainScene, mainCamera);
-        }
-        animateMain();
+    }
+
+    function animateMain() {
+        mainAnimationFrameId = requestAnimationFrame(animateMain);
+        mainControls.update();
+        mainRenderer.render(mainScene, mainCamera);
     }
 
     function loadMain3DModel(id, format, lod) {
         initMainThreeJS();
+        // the Back button stops the loop: without this the canvas keeps the last frame of the previous model
+        if (!mainAnimationFrameId) animateMain();
+        const container = document.getElementById('model-3d-canvas');
+        if (container && container.clientWidth > 0) {
+            mainCamera.aspect = container.clientWidth / container.clientHeight;
+            mainCamera.updateProjectionMatrix();
+            mainRenderer.setSize(container.clientWidth, container.clientHeight);
+        }
         
         if (mainModelObject && mainScene) {
             mainScene.remove(mainModelObject);

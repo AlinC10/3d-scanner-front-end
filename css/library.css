@@ -257,3 +257,49 @@
     background: var(--accent);
     color: var(--bg-primary);
 }
+/* --- QR CODE OF THE PHONE DOWNLOAD --- */
+#qr-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999980;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+}
+#qr-modal.show {
+  display: flex;
+}
+#qr-modal .qr-box {
+  width: 400px;
+  max-width: calc(100vw - 32px);
+  background: var(--bg-secondary);
+  border: 1px solid var(--neutral-border);
+  border-radius: 16px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+#qr-modal .qr-title {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+/* white background: phones read a dark-on-light code best, also in the dark theme */
+#qr-image {
+  width: 300px;
+  height: 300px;
+  max-height: 50vh;
+  background: #fff;
+  padding: 12px;
+  border-radius: 8px;
+  object-fit: contain;
+}
+#qr-modal .qr-note {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-align: center;
+}

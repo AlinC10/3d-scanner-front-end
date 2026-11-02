@@ -63,7 +63,7 @@
                 </div>
                 
                 <div class="prescan-layout" style="align-items: flex-start; padding-top: 40px;">
-                    <div class="settings-panel scrollable-panel" style="max-height: calc(100vh - 290px); overflow-y: auto; padding-right: 16px; padding-bottom: 24px; width: 100%; max-width: 900px; margin: 0 auto;">
+                    <div class="settings-panel scrollable-panel" style="max-height: calc(100vh - 290px); overflow-y: auto; padding-right: 16px; padding-bottom: 36px; width: 100%; max-width: 900px; margin: 0 auto;">
                         
                         <button class="btn-primary" id="btn-start-face-prep" style="margin-bottom: 12px; width: 100%; height: 50px; font-size: 1.1rem; justify-content: center;">▶ Prepare Face Scan</button>
                         <button class="btn-secondary" id="btn-reset-face-defaults" style="margin-bottom: 24px; width: 100%; justify-content: center; min-height: 40px; font-size: 0.9rem; color: var(--text-muted);">↺ Reset to Defaults</button>
@@ -152,6 +152,41 @@
                                         <span id="cfg-face-manual-z-val" style="font-family: var(--font-mono); font-weight: 600; color: var(--accent);">200</span>
                                     </div>
                                     <input type="range" id="cfg-face-manual-z" min="152" max="248" step="8" value="200" style="width: 100%;">
+                                </div>
+
+                                <div class="setting-row-box" style="padding: 16px; flex-direction: column; align-items: flex-start; gap:8px;">
+                                    <label class="setting-row-title">Focus Mode</label>
+                                    <select id="cfg-face-focus-mode" style="width:100%; padding: 8px; border-radius: 6px; background: var(--bg-primary); color: var(--text-main); border: 1px solid var(--neutral-border);">
+                                        <option value="auto" selected>Auto (Autofocus on face)</option>
+                                        <option value="none">None (Last saved position)</option>
+                                        <option value="custom">Single Value (Both Cameras)</option>
+                                        <option value="tuple">Per-Camera [Cam 1, Cam 2]</option>
+                                    </select>
+                                </div>
+
+                                <div class="setting-row-box" id="box-face-focus-val" style="padding: 16px; flex-direction: column; align-items: flex-start; gap:8px; display: none;">
+                                    <div style="display:flex; justify-content: space-between; width: 100%;">
+                                        <label class="setting-row-title">Focus Value (0 - 1023)</label>
+                                        <span id="cfg-face-focus-val-val" style="font-family: var(--font-mono); font-weight: 600; color: var(--accent);">512</span>
+                                    </div>
+                                    <input type="range" id="cfg-face-focus-val" min="0" max="1023" step="1" value="512" style="width: 100%;">
+                                </div>
+
+                                <div class="setting-row-box" id="box-face-focus-tuple" style="padding: 16px; flex-direction: column; align-items: flex-start; gap:12px; display: none;">
+                                    <div style="width: 100%;">
+                                        <div style="display:flex; justify-content: space-between; width: 100%; margin-bottom: 4px;">
+                                            <label class="setting-row-title" style="font-size: 0.85rem;">Camera 1 Focus</label>
+                                            <span id="cfg-face-focus-cam1-val" style="font-family: var(--font-mono); font-weight: 600; color: var(--accent);">512</span>
+                                        </div>
+                                        <input type="range" id="cfg-face-focus-cam1" min="0" max="1023" step="1" value="512" style="width: 100%;">
+                                    </div>
+                                    <div style="width: 100%;">
+                                        <div style="display:flex; justify-content: space-between; width: 100%; margin-bottom: 4px;">
+                                            <label class="setting-row-title" style="font-size: 0.85rem;">Camera 2 Focus</label>
+                                            <span id="cfg-face-focus-cam2-val" style="font-family: var(--font-mono); font-weight: 600; color: var(--accent);">512</span>
+                                        </div>
+                                        <input type="range" id="cfg-face-focus-cam2" min="0" max="1023" step="1" value="512" style="width: 100%;">
+                                    </div>
                                 </div>
                             </div>
                         </div>
