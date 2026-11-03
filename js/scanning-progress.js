@@ -8,6 +8,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
     let scanMode = urlParams.get('mode') || localStorage.getItem('scanMode') || 'object';
     let targetJobId = urlParams.get('job_id') || null;
+    if (targetJobId === 'active-rig' || targetJobId === 'undefined' || targetJobId === 'null') {
+        targetJobId = null;
+    }
 
     // Extragem setările avansate pregătite din pasul anterior
     let pendingScanSettings = {};
@@ -69,7 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let streamStopped = false;
     function stopStreamView() {
-        if (streamStopped) return;
+        if (streamStopped && scanStream && scanStream.style.display === 'none') return;
         streamStopped = true;
         clearTimeout(retryTimer);
         if (scanStream) {
@@ -82,14 +85,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function resumeStreamView() {
-        if (!streamStopped) return;
+        if (!streamStopped && scanStream && scanStream.style.display !== 'none' && scanStream.src) return;
         streamStopped = false;
         if (scanStream) {
             scanStream.style.display = 'block';
         }
         if (btnSwitchCamera) btnSwitchCamera.style.display = 'flex';
         document.querySelector('.scanning-container')?.classList.remove('stream-off');
-        loadStream(activeCameraId);
+        if (!scanStream.src || scanStream.src === '') {
+            loadStream(activeCameraId);
+        }
     }
 
     function loadStream(camId, attempt = 0) {
@@ -243,6 +248,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 5. POLLING PENTRU STATUS ---
     function initStatusPolling(keepTitle = false) {
+        if (statusInterval) clearInterval(statusInterval);
         if (statusTitle && !keepTitle) {
             statusTitle.innerText = scanMode === 'face'
                 ? "Status: Warming up (Face Mode)..."
@@ -263,40 +269,49 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (connWarning) connWarning.style.display = 'none';
                 }
 
-                // Sincronizăm targetJobId dacă scanerul a pornit unul nou
-                if (!targetJobId && scannerData && scannerData.job_id) {
-                    targetJobId = scannerData.job_id;
+                const rawRigState = (scannerData && scannerData.state || '').toLowerCase();
+                const isRigLive = ['preparing', 'prepared', 'running'].includes(rawRigState);
+
+                // 2. Interogăm job specific dacă a fost cerut în URL
+                let targetJob = null;
+                if (targetJobId) {
                     try {
-                        const u = new URL(window.location.href);
-                        u.searchParams.set('job_id', targetJobId);
-                        window.history.replaceState(null, '', u.toString());
-                    } catch (e) {}
+                        const jRes = await fetch(`${API_URL}/jobs?id=${encodeURIComponent(targetJobId)}`, { cache: 'no-store' });
+                        if (jRes.ok) targetJob = await jRes.json();
+                    } catch (je) {}
                 }
 
-                const rawRigState = (scannerData && scannerData.state || '').toLowerCase();
-                const isRigActiveForTarget = scannerData && 
-                    (!targetJobId || scannerData.job_id === targetJobId) && 
-                    ['preparing', 'prepared', 'running'].includes(rawRigState);
+                // Determinăm dacă ecranul ar trebui să afișeze stream-ul live de pe rig-ul fizic:
+                // Dacă rig-ul este activ fizic (preparing, prepared, running), afișăm rig-ul fizic cu excepția cazului
+                // când utilizatorul a deschis explicit din drawer un job exclusiv în cloud (processing) cu alt job_id.
+                const isExplicitCloudJob = Boolean(targetJobId && targetJob && 
+                    ['processing', 'uploading', 'queued'].includes((targetJob.status || '').toLowerCase()) &&
+                    (!scannerData || !scannerData.job_id || scannerData.job_id !== targetJobId));
+                const isViewingRig = isRigLive && !isExplicitCloudJob;
 
                 // --- CAZUL A: Scanare fizică ACTIVĂ pe aparat (Stream MJPEG activ) ---
-                if (isRigActiveForTarget) {
+                if (isViewingRig) {
                     resumeStreamView();
 
+                    if (scannerData.mode) scanMode = scannerData.mode;
+
+                    // Doar în starea running sincronizăm targetJobId cu noul job creat pe aparat
+                    if (rawRigState === 'running' && scannerData.job_id && scannerData.job_id !== targetJobId) {
+                        targetJobId = scannerData.job_id;
+                        try {
+                            const u = new URL(window.location.href);
+                            u.searchParams.set('job_id', targetJobId);
+                            window.history.replaceState(null, '', u.toString());
+                        } catch (e) {}
+                    }
+
                     if (jobLabel) {
-                        jobLabel.innerText = targetJobId ? `Job: ${targetJobId} (${scanMode.toUpperCase()})` : '';
-                        jobLabel.style.display = targetJobId ? 'block' : 'none';
+                        const displayJobId = (scannerData.job_id && rawRigState === 'running') ? scannerData.job_id : targetJobId;
+                        jobLabel.innerText = displayJobId ? `Job: ${displayJobId} (${scanMode.toUpperCase()})` : `Rig Active (${scanMode.toUpperCase()})`;
+                        jobLabel.style.display = 'block';
                     }
 
                     lastStatusKey = `${rawRigState}:${scannerData.job_id || ''}:${scannerData.result_id || ''}`;
-
-                    if (!hasSentStartCommand && ['running', 'processing', 'downloading'].includes(rawRigState)) {
-                        hasSentStartCommand = true;
-                        if (scannerData.mode) scanMode = scannerData.mode;
-                    }
-
-                    if (scannerData.phase_message && phaseMessage && !statusTitle.innerText.includes("Rejected")) {
-                        phaseMessage.innerText = scannerData.phase_message;
-                    }
 
                     if (cloudMessage) {
                         cloudMessage.innerText = scannerData.cloud_message || '';
@@ -304,16 +319,57 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     updateUploadWarning(scannerData, rawRigState);
 
-                    // PREPARED TRIGGER: Instant auto-start
-                    if (rawRigState === 'prepared' && !hasSentStartCommand) {
-                        hasSentStartCommand = true;
-                        statusTitle.innerText = "Status: Initializing Capture...";
-                        fireStartCommand();
-                    }
+                    if (btnNewScan) btnNewScan.style.display = 'none';
 
-                    // Progress Bar hardware
-                    if (rawRigState === 'running' && hasSentStartCommand) {
-                        statusTitle.innerText = "Status: Running";
+                    // Sub-stare 1: PREPARING (Homing Z, stabilizare lumini, calibrare camere)
+                    if (rawRigState === 'preparing') {
+                        statusTitle.innerText = "Status: Preparing Hardware...";
+                        statusTitle.style.color = "var(--accent)";
+                        phaseMessage.innerText = scannerData.phase_message || (scanMode === 'face'
+                            ? "Homing axes and positioning cameras for face capture..."
+                            : "Homing Z axis, climbing to start height, and stabilizing lights...");
+
+                        progressContainer.style.display = 'block';
+                        progressBar.style.width = '100%';
+                        progressBar.style.opacity = '0.4';
+                        progressText.innerText = scannerData.phase_message || "Preparing hardware...";
+                        progressPct.innerText = "Warming up";
+
+                        btnCancel.style.display = 'block';
+                        btnCancel.innerText = 'Cancel Scan';
+                        btnCancel.style.borderColor = '#ef4444';
+                        btnCancel.style.color = '#ef4444';
+                        btnCancel.onclick = triggerCancel;
+
+                    // Sub-stare 2: PREPARED (Hardware gata, trimitem automat start către rig)
+                    } else if (rawRigState === 'prepared') {
+                        statusTitle.innerText = scanMode === 'face' ? "Status: Capturing Face..." : "Status: Initializing Capture...";
+                        statusTitle.style.color = "var(--accent)";
+                        phaseMessage.innerText = scannerData.phase_message || "Hardware prepared. Triggering capture sequence...";
+
+                        progressContainer.style.display = 'block';
+                        progressBar.style.width = '100%';
+                        progressBar.style.opacity = '0.7';
+                        progressText.innerText = "Starting capture...";
+                        progressPct.innerText = "Ready";
+
+                        btnCancel.style.display = 'block';
+                        btnCancel.innerText = 'Cancel Scan';
+                        btnCancel.style.borderColor = '#ef4444';
+                        btnCancel.style.color = '#ef4444';
+                        btnCancel.onclick = triggerCancel;
+
+                        if (!hasSentStartCommand) {
+                            hasSentStartCommand = true;
+                            fireStartCommand();
+                        }
+
+                    // Sub-stare 3: RUNNING (Fotografiere fizică pe rig)
+                    } else if (rawRigState === 'running') {
+                        if (!hasSentStartCommand) hasSentStartCommand = true;
+
+                        statusTitle.innerText = scanMode === 'face' ? "Status: Face Capture Running" : "Status: Running";
+                        statusTitle.style.color = "var(--text-main)";
                         progressContainer.style.display = 'block';
 
                         if (scannerData.total_photos && scannerData.total_photos > 0) {
@@ -321,51 +377,56 @@ document.addEventListener('DOMContentLoaded', () => {
                             const tot = scannerData.total_photos;
                             const pct = Math.round((up / tot) * 100);
                             progressBar.style.width = `${pct}%`;
+                            progressBar.style.opacity = '1';
                             const cap = scannerData.photos_captured || 0;
                             const ring = scannerData.level ? `Ring ${scannerData.level} · ` : '';
                             progressText.innerText = `${ring}${cap} captured · ${up} / ${tot} uploaded`;
                             progressPct.innerText = `${pct}%`;
-                            progressBar.style.opacity = '1';
+                        } else {
+                            progressBar.style.width = '100%';
+                            progressBar.style.opacity = '0.5';
+                            progressText.innerText = scannerData.phase_message || "Scanning in progress...";
+                            progressPct.innerText = "Running";
                         }
-                    }
 
-                    if (btnNewScan) btnNewScan.style.display = 'none';
+                        if (scannerData.phase_message && phaseMessage && !statusTitle.innerText.includes("Rejected")) {
+                            phaseMessage.innerText = scannerData.phase_message;
+                        }
+
+                        btnCancel.style.display = 'block';
+                        btnCancel.innerText = 'Cancel Scan';
+                        btnCancel.style.borderColor = '#ef4444';
+                        btnCancel.style.color = '#ef4444';
+                        btnCancel.onclick = triggerCancel;
+                    }
 
                 } else {
-                    // --- CAZUL B: Reconstrucție în Cloud / Job specific pe Server (/jobs) ---
+                    // --- CAZUL B: Reconstrucție în Cloud / Job specific pe Server (/jobs) sau scanare încheiată ---
                     stopStreamView();
 
-                    let job = null;
-                    if (targetJobId) {
-                        try {
-                            const jRes = await fetch(`${API_URL}/jobs?id=${encodeURIComponent(targetJobId)}`, { cache: 'no-store' });
-                            if (jRes.ok) job = await jRes.json();
-                        } catch (je) {}
-                    }
-
-                    // Dacă jobul a fost găsit în registrul /jobs
-                    if (job) {
-                        const jStatus = (job.status || '').toLowerCase();
-                        scanMode = job.kind || scanMode;
-                        lastStatusKey = `${jStatus}:${job.job_id || ''}:${job.result_id || ''}`;
+                    // Prioritate 1: Detalii din /jobs
+                    if (targetJob) {
+                        const jStatus = (targetJob.status || '').toLowerCase();
+                        scanMode = targetJob.kind || scanMode;
+                        lastStatusKey = `${jStatus}:${targetJob.job_id || ''}:${targetJob.result_id || ''}`;
 
                         if (jobLabel) {
-                            const jobTitle = job.meta?.title ? `${job.meta.title} (${(job.kind || 'object').toUpperCase()})` : `Job: ${job.job_id}`;
+                            const jobTitle = targetJob.meta?.title ? `${targetJob.meta.title} (${(targetJob.kind || 'object').toUpperCase()})` : `Job: ${targetJob.job_id}`;
                             jobLabel.innerText = jobTitle;
                             jobLabel.style.display = 'block';
                         }
 
                         if (phaseMessage) {
-                            phaseMessage.innerText = job.phase_message || 'Processing 3D model in background...';
+                            phaseMessage.innerText = targetJob.phase_message || 'Processing 3D model in background...';
                         }
 
                         if (cloudMessage) {
-                            const cm = job.cloud_message || (job.pod_id ? `Pod ID: ${job.pod_id}` : '');
+                            const cm = targetJob.cloud_message || (targetJob.pod_id ? `Pod ID: ${targetJob.pod_id}` : '');
                             cloudMessage.innerText = cm;
                             cloudMessage.style.display = cm ? 'block' : 'none';
                         }
 
-                        // Statusurile active în cloud
+                        // Statusuri active în cloud
                         if (['processing', 'uploading', 'running', 'queued'].includes(jStatus)) {
                             hasSentStartCommand = true;
                             statusTitle.innerText = jStatus === 'processing' 
@@ -376,7 +437,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             progressContainer.style.display = 'block';
                             progressBar.style.width = '100%';
                             progressBar.style.opacity = '0.6';
-                            progressText.innerText = job.phase_message || "Processing Model in Cloud...";
+                            progressText.innerText = targetJob.phase_message || "Processing Model in Cloud...";
                             progressPct.innerText = "Wait";
 
                             // Rig este liber: oferim buton de scanare nouă
@@ -386,6 +447,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             btnCancel.innerText = 'Cancel Scan';
                             btnCancel.style.borderColor = '#ef4444';
                             btnCancel.style.color = '#ef4444';
+                            btnCancel.onclick = triggerCancel;
 
                         } else if (jStatus === 'completed') {
                             statusTitle.innerText = "Scan completed successfully!";
@@ -393,8 +455,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             progressContainer.style.display = 'none';
 
                             if (btnNewScan) btnNewScan.style.display = 'flex';
-                            libraryResultId = job.result_id;
+                            libraryResultId = targetJob.result_id;
 
+                            inputGroup.style.display = 'flex';
                             btnCancel.style.display = 'block';
                             btnCancel.innerText = 'Open in Library';
                             btnCancel.style.borderColor = 'var(--accent)';
@@ -402,11 +465,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             btnCancel.onclick = () => window.location.href = 'library.html';
 
                         } else if (jStatus === 'failed') {
-                            statusTitle.innerText = `Error: ${job.error || "Reconstruction Failed"}`;
+                            statusTitle.innerText = `Error: ${targetJob.error || "Reconstruction Failed"}`;
                             statusTitle.style.color = "#ef4444";
                             progressContainer.style.display = 'none';
 
-                            if (btnRetryCloud && (job.kind || scanMode) === 'object') {
+                            if (btnRetryCloud && (targetJob.kind || scanMode) === 'object') {
                                 btnRetryCloud.style.display = 'flex';
                             }
                             if (btnNewScan) btnNewScan.style.display = 'flex';
@@ -421,13 +484,14 @@ document.addEventListener('DOMContentLoaded', () => {
                             statusTitle.innerText = "Scan Cancelled.";
                             statusTitle.style.color = "#f59e0b";
                             progressContainer.style.display = 'none';
+                            if (btnNewScan) btnNewScan.style.display = 'flex';
                             btnCancel.style.display = 'block';
                             btnCancel.innerText = 'Back to menu';
                             btnCancel.onclick = () => window.location.href = 'index.html';
                         }
 
+                    // Prioritate 2: Fallback pe scannerData (când /jobs nu este disponibil sau datele vin direct din rig)
                     } else if (scannerData) {
-                        // Fallback pe scannerData (când /jobs nu este disponibil sau nu a înregistrat încă)
                         const currentState = rawRigState;
                         lastStatusKey = `${currentState}:${scannerData.job_id || ''}:${scannerData.result_id || ''}`;
 
@@ -449,6 +513,12 @@ document.addEventListener('DOMContentLoaded', () => {
                             progressPct.innerText = "Wait";
 
                             if (btnNewScan) btnNewScan.style.display = 'flex';
+                            btnCancel.style.display = 'block';
+                            btnCancel.innerText = 'Cancel Scan';
+                            btnCancel.style.borderColor = '#ef4444';
+                            btnCancel.style.color = '#ef4444';
+                            btnCancel.onclick = triggerCancel;
+
                         } else if (currentState === 'completed') {
                             statusTitle.innerText = "Scan completed successfully!";
                             statusTitle.style.color = "#10b981";
@@ -458,6 +528,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                 ? scannerData.face_result.result_id 
                                 : scannerData.result_id;
                             inputGroup.style.display = 'flex';
+                            if (btnNewScan) btnNewScan.style.display = 'flex';
+
                         } else if (currentState === 'error') {
                             statusTitle.innerText = `Error: ${scannerData.error || "Hardware Failure"}`;
                             statusTitle.style.color = "#ef4444";
@@ -465,7 +537,29 @@ document.addEventListener('DOMContentLoaded', () => {
                             if (btnRetryCloud && (scannerData.mode || scanMode) === 'object') {
                                 btnRetryCloud.style.display = 'flex';
                             }
+                            if (btnNewScan) btnNewScan.style.display = 'flex';
+                            btnCancel.style.display = 'block';
                             btnCancel.innerText = 'Back to menu';
+                            btnCancel.onclick = () => window.location.href = 'index.html';
+
+                        } else if (currentState === 'cancelled') {
+                            statusTitle.innerText = "Scan Cancelled.";
+                            statusTitle.style.color = "#f59e0b";
+                            progressContainer.style.display = 'none';
+                            if (btnNewScan) btnNewScan.style.display = 'flex';
+                            btnCancel.style.display = 'block';
+                            btnCancel.innerText = 'Back to menu';
+                            btnCancel.onclick = () => window.location.href = 'index.html';
+
+                        } else if (currentState === 'idle') {
+                            statusTitle.innerText = "Scanner is ready";
+                            statusTitle.style.color = "var(--text-main)";
+                            phaseMessage.innerText = "No active scan in progress. Ready to scan.";
+                            progressContainer.style.display = 'none';
+                            if (btnNewScan) btnNewScan.style.display = 'flex';
+                            btnCancel.style.display = 'block';
+                            btnCancel.innerText = 'Back to menu';
+                            btnCancel.onclick = () => window.location.href = 'index.html';
                         }
                     }
                 }

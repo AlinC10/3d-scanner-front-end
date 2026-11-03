@@ -202,7 +202,11 @@
     function navigateToScan(scan) {
         const jobId = scan.job_id || '';
         const kind = scan.kind || 'object';
-        window.location.href = `scanning.html?job_id=${encodeURIComponent(jobId)}&mode=${encodeURIComponent(kind)}`;
+        if (scan.is_hardware) {
+            window.location.href = `scanning.html?mode=${encodeURIComponent(kind)}${jobId && jobId !== 'active-rig' ? '&job_id=' + encodeURIComponent(jobId) : ''}`;
+        } else {
+            window.location.href = `scanning.html?job_id=${encodeURIComponent(jobId)}&mode=${encodeURIComponent(kind)}`;
+        }
     }
 
     // Network status listener
@@ -383,7 +387,11 @@
                 const isRigActive = ['preparing', 'prepared', 'running', 'processing'].includes(rawState);
 
                 if (isRigActive) {
-                    const existing = merged.find(m => m.job_id && scannerData.job_id && m.job_id === scannerData.job_id);
+                    // Match existing job ONLY if it's currently active (not completed/failed)
+                    const existing = scannerData.job_id 
+                        ? merged.find(m => m.job_id === scannerData.job_id && !['completed', 'failed', 'cancelled'].includes(m.status))
+                        : null;
+
                     if (existing) {
                         existing.is_hardware = rawState !== 'processing'; // rig is decoupled once in processing
                         existing.status = rawState;
@@ -393,7 +401,7 @@
                     } else if (rawState !== 'idle') {
                         // Prepend newly started hardware scan not yet reflected in /jobs
                         merged.unshift({
-                            job_id: scannerData.job_id || 'active-rig',
+                            job_id: (rawState === 'running' && scannerData.job_id) ? scannerData.job_id : 'active-rig',
                             kind: scannerData.mode || 'object',
                             status: rawState,
                             phase: scannerData.phase,
