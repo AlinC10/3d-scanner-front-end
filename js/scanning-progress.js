@@ -191,10 +191,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } else {
                 statusTitle.innerText = "Status: Starting Object Scan...";
+
+                // Asigurăm că parametrii de cloud au întotdeauna start_pod_with_scan = true by default!
+                const finalStartPayload = Object.assign({}, pendingScanSettings);
+                if (!finalStartPayload.cloud || typeof finalStartPayload.cloud !== 'object') {
+                    finalStartPayload.cloud = {};
+                }
+                finalStartPayload.cloud.launch_runpod = true;
+                finalStartPayload.cloud.start_pod_with_scan = true;
+                if (!finalStartPayload.cloud.resolution_level) {
+                    finalStartPayload.cloud.resolution_level = 1;
+                }
+
                 const startRes = await fetch(`${API_URL}/scanner/start`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(pendingScanSettings)
+                    body: JSON.stringify(finalStartPayload)
                 });
                 
                 if (!startRes.ok) {
@@ -217,7 +229,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 4. SALVARE METADATE (Titlu/Descriere la final) ---
     function markScanSeen() {
-        try { sessionStorage.setItem('scanMonitorDismissed', lastStatusKey); } catch (e) {}
+        try {
+            sessionStorage.setItem('scanMonitorDismissed', lastStatusKey);
+            const jid = targetJobId || (lastStatusKey && lastStatusKey.split(':')[1]);
+            const rid = libraryResultId || (lastStatusKey && lastStatusKey.split(':')[2]);
+            if (jid && jid !== 'active-rig') {
+                sessionStorage.setItem('sm_dismiss_' + jid, '1');
+                localStorage.setItem('sm_dismiss_' + jid, '1');
+            }
+            if (rid) {
+                sessionStorage.setItem('sm_dismiss_' + rid, '1');
+                localStorage.setItem('sm_dismiss_' + rid, '1');
+            }
+        } catch (e) {}
     }
 
     async function saveFinalDetails() {
@@ -282,12 +306,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 // Determinăm dacă ecranul ar trebui să afișeze stream-ul live de pe rig-ul fizic:
-                // Dacă rig-ul este activ fizic (preparing, prepared, running), afișăm rig-ul fizic cu excepția cazului
-                // când utilizatorul a deschis explicit din drawer un job exclusiv în cloud (processing) cu alt job_id.
-                const isExplicitCloudJob = Boolean(targetJobId && targetJob && 
-                    ['processing', 'uploading', 'queued'].includes((targetJob.status || '').toLowerCase()) &&
-                    (!scannerData || !scannerData.job_id || scannerData.job_id !== targetJobId));
-                const isViewingRig = isRigLive && !isExplicitCloudJob;
+                // Dacă utilizatorul a deschis explicit din drawer un job cu un targetJobId specific,
+                // iar acel job este în /jobs în starea processing / uploading / queued / completed / failed:
+                const isExplicitJobView = Boolean(targetJobId && targetJobId !== 'active-rig' && targetJob);
+                const isViewingRig = isRigLive && (!isExplicitJobView || ['running', 'uploading'].includes((targetJob.status || '').toLowerCase()));
 
                 // --- CAZUL A: Scanare fizică ACTIVĂ pe aparat (Stream MJPEG activ) ---
                 if (isViewingRig) {
@@ -462,7 +484,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             btnCancel.innerText = 'Open in Library';
                             btnCancel.style.borderColor = 'var(--accent)';
                             btnCancel.style.color = 'var(--accent)';
-                            btnCancel.onclick = () => window.location.href = 'library.html';
+                            btnCancel.onclick = () => {
+                                markScanSeen();
+                                window.location.href = 'library.html';
+                            };
 
                         } else if (jStatus === 'failed') {
                             statusTitle.innerText = `Error: ${targetJob.error || "Reconstruction Failed"}`;

@@ -102,6 +102,11 @@
         .sm-item-status-badge.status-completed { background: rgba(16, 185, 129, 0.15); color: #10b981; }
         .sm-item-status-badge.status-failed,
         .sm-item-status-badge.status-error { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+        .sm-item-close {
+            font-size: 1rem; line-height: 1; color: var(--text-muted); padding: 0 4px; cursor: pointer; margin-left: 6px;
+            border-radius: 4px; transition: color 0.15s ease, background 0.15s ease;
+        }
+        .sm-item-close:hover { color: var(--text-main); background: rgba(255,255,255,0.1); }
         .sm-item-msg { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .sm-item-bar { margin-top: 5px; height: 3px; background: var(--bg-primary); border-radius: 2px; overflow: hidden; }
         .sm-item-bar > div { height: 100%; background: var(--accent); }
@@ -172,13 +177,35 @@
         }
     }
 
+    // Dismiss scan helper (persistent in session and local storage)
+    function dismissScan(jobId, resultId) {
+        try {
+            if (jobId && jobId !== 'active-rig') {
+                sessionStorage.setItem('sm_dismiss_' + jobId, '1');
+                localStorage.setItem('sm_dismiss_' + jobId, '1');
+            }
+            if (resultId) {
+                sessionStorage.setItem('sm_dismiss_' + resultId, '1');
+                localStorage.setItem('sm_dismiss_' + resultId, '1');
+            }
+        } catch (e) {}
+    }
+
+    function isDismissed(jobId, resultId) {
+        try {
+            if (jobId && (sessionStorage.getItem('sm_dismiss_' + jobId) === '1' || localStorage.getItem('sm_dismiss_' + jobId) === '1')) return true;
+            if (resultId && (sessionStorage.getItem('sm_dismiss_' + resultId) === '1' || localStorage.getItem('sm_dismiss_' + resultId) === '1')) return true;
+        } catch (e) {}
+        return false;
+    }
+
     // Dismiss primary scan
     closeBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (primaryScan && primaryScan.job_id) {
-            try { sessionStorage.setItem('sm_dismiss_' + primaryScan.job_id, '1'); } catch (err) {}
+        if (primaryScan) {
+            dismissScan(primaryScan.job_id, primaryScan.result_id);
         }
-        allScans = allScans.filter(s => s.job_id !== primaryScan?.job_id);
+        allScans = allScans.filter(s => s !== primaryScan);
         render();
     });
 
@@ -226,10 +253,6 @@
         const m = (scan.phase_message || '').trim();
         if (m && m.length <= 90 && !/^[\[{]/.test(m)) return m;
         return PHASE_TEXT[scan.phase] || PHASE_TEXT[scan.status] || scan.status;
-    }
-
-    function isDismissed(jobId) {
-        try { return sessionStorage.getItem('sm_dismiss_' + jobId) === '1'; } catch (e) { return false; }
     }
 
     function render() {
@@ -295,7 +318,7 @@
             itemEl.className = 'sm-drawer-item' + (scan === primaryScan ? ' active-item' : '');
             
             const scanTitle = scan.meta?.title || (scan.kind === 'face' ? 'Face Scan' : 'Object Scan');
-            const scanStatus = scan.status || 'running';
+            const scanStatus = (scan.status || 'running').toLowerCase();
             const scanKind = (scan.kind || 'object').toUpperCase();
             const msg = readableMsg(scan);
 
@@ -305,16 +328,32 @@
                 barHtml = `<div class="sm-item-bar"><div style="width: ${pct}%"></div></div>`;
             }
 
+            const isFinished = ['completed', 'failed', 'error', 'cancelled'].includes(scanStatus);
+            const dismissBtnHtml = isFinished 
+                ? `<span class="sm-item-close" title="Dismiss">✕</span>` 
+                : '';
+
             itemEl.innerHTML = `
                 <div class="sm-item-top">
                     <span class="sm-dot ${scanStatus === 'completed' ? 'done' : (['failed', 'error'].includes(scanStatus) ? 'error' : '')}"></span>
                     <span class="sm-item-kind-badge">${scanKind}</span>
                     <span class="sm-item-title">${esc(scanTitle)}</span>
                     <span class="sm-item-status-badge status-${scanStatus}">${scanStatus}</span>
+                    ${dismissBtnHtml}
                 </div>
                 <div class="sm-item-msg">${esc(msg)}</div>
                 ${barHtml}
             `;
+
+            const itemCloseBtn = itemEl.querySelector('.sm-item-close');
+            if (itemCloseBtn) {
+                itemCloseBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    dismissScan(scan.job_id, scan.result_id);
+                    allScans = allScans.filter(s => s !== scan);
+                    render();
+                });
+            }
 
             itemEl.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -360,7 +399,7 @@
             jobsList.forEach(job => {
                 const status = (job.status || '').toLowerCase();
                 const isActive = activeStatuses.includes(status);
-                const isRecent = ['completed', 'failed'].includes(status) && !isDismissed(job.job_id);
+                const isRecent = ['completed', 'failed', 'cancelled'].includes(status) && !isDismissed(job.job_id, job.result_id);
 
                 if (isActive || isRecent) {
                     merged.push({
@@ -384,24 +423,39 @@
             // Match physical hardware scanner status
             if (scannerData && scannerData.state) {
                 const rawState = (scannerData.state || '').toLowerCase();
-                const isRigActive = ['preparing', 'prepared', 'running', 'processing'].includes(rawState);
+                const isRigActive = ['preparing', 'prepared', 'running'].includes(rawState);
 
                 if (isRigActive) {
-                    // Match existing job ONLY if it's currently active (not completed/failed)
-                    const existing = scannerData.job_id 
-                        ? merged.find(m => m.job_id === scannerData.job_id && !['completed', 'failed', 'cancelled'].includes(m.status))
-                        : null;
-
-                    if (existing) {
-                        existing.is_hardware = rawState !== 'processing'; // rig is decoupled once in processing
-                        existing.status = rawState;
-                        existing.photos_uploaded = scannerData.photos_uploaded || existing.photos_uploaded;
-                        existing.total_photos = scannerData.total_photos || existing.total_photos;
-                        if (scannerData.phase_message) existing.phase_message = scannerData.phase_message;
-                    } else if (rawState !== 'idle') {
-                        // Prepend newly started hardware scan not yet reflected in /jobs
+                    if (rawState === 'running' && scannerData.job_id) {
+                        // Match existing job ONLY if it's currently active on the rig (running/uploading/queued)
+                        const existing = merged.find(m => m.job_id === scannerData.job_id && ['running', 'uploading', 'queued'].includes(m.status));
+                        if (existing) {
+                            existing.is_hardware = true;
+                            existing.status = rawState;
+                            existing.photos_uploaded = scannerData.photos_uploaded || existing.photos_uploaded;
+                            existing.total_photos = scannerData.total_photos || existing.total_photos;
+                            if (scannerData.phase_message) existing.phase_message = scannerData.phase_message;
+                        } else {
+                            merged.unshift({
+                                job_id: scannerData.job_id,
+                                kind: scannerData.mode || 'object',
+                                status: rawState,
+                                phase: scannerData.phase,
+                                phase_message: scannerData.phase_message,
+                                error: scannerData.error,
+                                result_id: scannerData.result_id,
+                                meta: { title: scannerData.mode === 'face' ? 'Face Scan' : 'Object Scan' },
+                                is_hardware: true,
+                                photos_uploaded: scannerData.photos_uploaded || 0,
+                                total_photos: scannerData.total_photos || 0
+                            });
+                        }
+                    } else {
+                        // During 'preparing' or 'prepared':
+                        // This is a NEW scan being prepared on the physical rig!
+                        // It MUST NEVER match or overwrite any job from /jobs (such as previous jobs still processing in the cloud!)
                         merged.unshift({
-                            job_id: (rawState === 'running' && scannerData.job_id) ? scannerData.job_id : 'active-rig',
+                            job_id: 'active-rig',
                             kind: scannerData.mode || 'object',
                             status: rawState,
                             phase: scannerData.phase,
@@ -409,9 +463,9 @@
                             error: scannerData.error,
                             result_id: scannerData.result_id,
                             meta: { title: scannerData.mode === 'face' ? 'Face Scan' : 'Object Scan' },
-                            is_hardware: rawState !== 'processing',
-                            photos_uploaded: scannerData.photos_uploaded || 0,
-                            total_photos: scannerData.total_photos || 0
+                            is_hardware: true,
+                            photos_uploaded: 0,
+                            total_photos: 0
                         });
                     }
                 }
