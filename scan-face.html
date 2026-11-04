@@ -120,10 +120,11 @@
                                 <div class="setting-row-box" style="padding: 16px; flex-direction: column; align-items: flex-start; gap:12px; grid-column: span 2;">
                                     <div style="display:flex; justify-content: space-between; align-items: center; width: 100%;">
                                         <label class="setting-row-title" style="margin: 0;">Focus Mode</label>
-                                        <span id="cfg-face-focus-summary" style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-muted);">Auto</span>
+                                        <span id="cfg-face-focus-summary" style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--accent);">Optim</span>
                                     </div>
                                     <select id="cfg-face-focus-mode" style="width:100%; padding: 10px; border-radius: 6px; background: var(--bg-primary); color: var(--text-main); border: 1px solid var(--neutral-border); font-size: 0.95rem;">
-                                        <option value="auto" selected>Auto (Autofocus on face)</option>
+                                        <option value="optim" selected>Optim (Calibrated 120/120 · Recommended)</option>
+                                        <option value="auto">Auto (Autofocus on face)</option>
                                         <option value="none">None (Last saved position)</option>
                                         <option value="manual_single">Manual (Both Cameras: 0 - 1023)</option>
                                         <option value="manual_tuple">Manual (Per-Camera: [Cam 1, Cam 2])</option>

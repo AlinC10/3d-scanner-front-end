@@ -90,7 +90,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (boxVal) boxVal.style.display = isSingle ? 'flex' : 'none';
         if (boxTuple) boxTuple.style.display = isTuple ? 'flex' : 'none';
         if (summary) {
-            if (v === 'auto') summary.innerText = 'Auto';
+            if (v === 'optim') summary.innerText = 'Optim';
+            else if (v === 'auto') summary.innerText = 'Auto';
             else if (v === 'none') summary.innerText = 'None';
             else if (isSingle) summary.innerText = 'Manual (Single)';
             else if (isTuple) summary.innerText = 'Manual (Per-Cam)';
@@ -107,7 +108,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function getFocusParam(prefix) {
-        const mode = document.getElementById(`${prefix}-focus-mode`)?.value || 'auto';
+        const mode = document.getElementById(`${prefix}-focus-mode`)?.value || 'optim';
+        if (mode === 'optim') return 'optim';
         if (mode === 'none') return null;
         if (mode === 'manual_single' || mode === 'custom') {
             const raw = parseInt(document.getElementById(`${prefix}-focus-val`)?.value || '512', 10);
@@ -154,7 +156,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             setSliderValue('cfg-adv-led', 100, '%');
             const focusObjMode = document.getElementById('cfg-obj-focus-mode');
-            if (focusObjMode) focusObjMode.value = 'auto';
+            if (focusObjMode) focusObjMode.value = 'optim';
             setSliderValue('cfg-obj-focus-val', 512);
             setSliderValue('cfg-obj-focus-cam1', 512);
             setSliderValue('cfg-obj-focus-cam2', 512);
@@ -180,7 +182,7 @@ document.addEventListener('DOMContentLoaded', () => {
             setSliderValue('cfg-face-step', 8);
             setSliderValue('cfg-face-manual-z', 200);
             const focusFaceMode = document.getElementById('cfg-face-focus-mode');
-            if (focusFaceMode) focusFaceMode.value = 'auto';
+            if (focusFaceMode) focusFaceMode.value = 'optim';
             setSliderValue('cfg-face-focus-val', 512);
             setSliderValue('cfg-face-focus-cam1', 512);
             setSliderValue('cfg-face-focus-cam2', 512);

@@ -26,9 +26,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // [group, method, route, sample body]
     const ENDPOINTS = [
         ['Scanner', 'GET',  '/scanner/status', null],
-        ['Scanner', 'POST', '/scanner/prepare', {enable_stream: true, illumination_brightness: 1.0, z_start_mm: 32.0, z_delay: 0.001, camera_config: {quality: 95, focus: 'auto'}}],
+        ['Scanner', 'POST', '/scanner/prepare', {enable_stream: true, illumination_brightness: 1.0, z_start_mm: 32.0, z_delay: 0.001, camera_config: {quality: 95, focus: 'optim'}}],
         ['Scanner', 'POST', '/scanner/start', {job_id: null, mechanical: {turntable: {angle: 18.0, delay: 0.001, acceleration: true, ramp_percent: 0.4, decel_percent: 0.5, end_delay: 0.015}, z_axis: {distance_mm: 80.0, delay: 0.001, acceleration: false}}, cloud: {launch_runpod: true, resolution_level: 1, title: null, start_pod_with_scan: true}}],
-        ['Scanner', 'POST', '/scanner/face/prepare', {enable_stream: true, illumination_brightness: 0.35, start_z_mm: 144.0, upload_r2: false, z_delay: 0.001, camera_config: {focus: 'auto'}}],
+        ['Scanner', 'POST', '/scanner/face/prepare', {enable_stream: true, illumination_brightness: 0.35, start_z_mm: 144.0, upload_r2: false, z_delay: 0.001, camera_config: {focus: 'optim'}}],
         ['Scanner', 'POST', '/scanner/face/capture', {strategy: 'direct_stop', search_range_mm: 48.0, step_mm: 8.0, manual_z: null, settle_s: 0.15, z_delay: null, title: null, reconstruct: true}],
         ['Scanner', 'POST', '/scanner/cloud/retry', null],
         ['Scanner', 'POST', '/scanner/cancel', null],
