@@ -11,6 +11,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (targetJobId === 'active-rig' || targetJobId === 'undefined' || targetJobId === 'null') {
         targetJobId = null;
     }
+    let latestRigJobId = null;
+    let isViewingRig = false;
 
     // Extragem setările avansate pregătite din pasul anterior
     let pendingScanSettings = {};
@@ -155,14 +157,23 @@ document.addEventListener('DOMContentLoaded', () => {
         if (statusTitle) statusTitle.innerText = "Canceling...";
         if (btnCancel) btnCancel.disabled = true;
 
-        if (targetJobId) {
+        // Dacă avem un job identificabil (fie cel selectat explicit din cloud, fie cel de pe rig):
+        // apelăm exclusiv POST /jobs/{job_id}/cancel.
+        // Backend-ul gestionează oprirea pod-ului sau oprirea motoarelor dacă e pe rig,
+        // fără a afecta cealaltă scanare!
+        // Doar dacă rig-ul se pregătește (preparing/prepared) și nu există încă niciun job_id:
+        // apelăm POST /scanner/cancel pentru oprirea hardware-ului.
+        const jobIdToCancel = isViewingRig ? (latestRigJobId || targetJobId) : targetJobId;
+
+        if (jobIdToCancel && jobIdToCancel !== 'active-rig') {
             try {
-                await fetch(`${API_URL}/jobs/${encodeURIComponent(targetJobId)}/cancel`, { method: 'POST' });
+                await fetch(`${API_URL}/jobs/${encodeURIComponent(jobIdToCancel)}/cancel`, { method: 'POST' });
+            } catch (e) {}
+        } else {
+            try {
+                await fetch(`${API_URL}/scanner/cancel`, { method: 'POST' });
             } catch (e) {}
         }
-        try {
-            await fetch(`${API_URL}/scanner/cancel`, { method: 'POST' });
-        } catch (e) {}
 
         window.location.href = 'index.html';
     }
@@ -309,13 +320,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Dacă utilizatorul a deschis explicit din drawer un job cu un targetJobId specific,
                 // iar acel job este în /jobs în starea processing / uploading / queued / completed / failed:
                 const isExplicitJobView = Boolean(targetJobId && targetJobId !== 'active-rig' && targetJob);
-                const isViewingRig = isRigLive && (!isExplicitJobView || ['running', 'uploading'].includes((targetJob.status || '').toLowerCase()));
+                isViewingRig = isRigLive && (!isExplicitJobView || ['running', 'uploading'].includes((targetJob.status || '').toLowerCase()));
 
                 // --- CAZUL A: Scanare fizică ACTIVĂ pe aparat (Stream MJPEG activ) ---
                 if (isViewingRig) {
                     resumeStreamView();
 
                     if (scannerData.mode) scanMode = scannerData.mode;
+
+                    // Reținem job_id-ul curent activ pe aparat
+                    if (scannerData.job_id && ['running', 'uploading', 'verifying'].includes(rawRigState)) {
+                        latestRigJobId = scannerData.job_id;
+                    }
 
                     // Doar în starea running sincronizăm targetJobId cu noul job creat pe aparat
                     if (rawRigState === 'running' && scannerData.job_id && scannerData.job_id !== targetJobId) {
