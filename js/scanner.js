@@ -90,7 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (boxVal) boxVal.style.display = isSingle ? 'flex' : 'none';
         if (boxTuple) boxTuple.style.display = isTuple ? 'flex' : 'none';
         if (summary) {
-            if (v === 'optim') summary.innerText = 'Optim';
+            if (v === 'optim') summary.innerText = 'Recommended';
             else if (v === 'auto') summary.innerText = 'Auto';
             else if (v === 'none') summary.innerText = 'None';
             else if (isSingle) summary.innerText = 'Manual (Single)';
